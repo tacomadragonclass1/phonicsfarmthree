@@ -33,8 +33,8 @@ Feedback is never punitive: no buzzers, no lives, no timers, nothing lost.
 
 | # | Question | Options |
 |---|---|---|
-| D1 | How does a child pick things up? | **(a, default)** nearest thing in reach lights up, one action takes it · (b) walking into a block takes it automatically · (c) tap the thing and Chuck walks over and takes it |
-| D2 | Touch controls | **(a, default)** drag anywhere to walk + one large action button · (b) nothing drawn, gestures only · (c) tap-to-go |
+| D1 | How does a child pick things up? | **DECIDED 2026-11-11: (a)** the nearest thing in reach lights up, one action takes it. Rejected: automatic pickup on contact; tap-and-walk. |
+| D2 | Touch controls | **DECIDED 2026-11-11: (a)** drag anywhere to walk + one large on-screen action button. Rejected: gestures only; tap-to-go. |
 | D3 | Which letters | **(a, default)** all 26 available, activities choose subsets · (b) a curated CVC set only |
 | D4 | World shape | **(a, default)** one continuous place, activities are locations in it · (b) separate small scenes chosen from a hub |
 | D5 | Look | **(a, default)** painted textures + ink outline + soft toon light · (b) plain soft PBR · (c) something new, after seeing (a) in the slice |

@@ -6,8 +6,7 @@ Living ledger. Result vocabulary (see `TESTING.md` §4): *unit-tested*,
 ## State — 2026-11-11
 
 - Standalone repository `phonicsfarmthree`, local only: `git init` done,
-  **no commits, no remote**. Committing and creating a GitHub repo wait for
-  the owner's word.
+  first commit `0277666`, **no remote** (kept local by decision).
 - Stage A complete. Stage B (vertical slice) in progress.
 - Nothing is viewable in a browser yet; the first runnable page arrives
   with task B-11.
@@ -25,8 +24,8 @@ Living ledger. Result vocabulary (see `TESTING.md` §4): *unit-tested*,
 | B-03 | `AssetLibrary` | — | briefed | |
 | B-09 | Painted material, ink outline, lighting | — | briefed | |
 | B-10 | Letter faces | — | briefed | |
-| B-04 | Input | — | briefed, on hold | Depends on design questions D1/D2. |
-| B-06 | Carry rules | — | briefed, on hold | Depends on D1. |
+| B-04 | Input | — | briefed | D1/D2 decided: light-up + one action; drag + button. |
+| B-06 | Carry rules | — | briefed | D1 decided. |
 | B-11 | Views, scene assembly, `main.ts` | — | not briefed | |
 | B-12 | Browser run-through | — | — | |
 
@@ -46,6 +45,6 @@ implementation.
 
 ## Waiting on the owner
 
-- Design questions D1–D5 in `ARCHITECTURE.md` §1 (defaults are in place, so
-  only D1/D2 hold any work).
-- First commit; GitHub repository; whether to bring the Blender sources in.
+- Design questions D3–D5 in `ARCHITECTURE.md` §1 (defaults in place; none
+  block work).
+- Whether to bring the Blender sources in. Commits are made only when asked.

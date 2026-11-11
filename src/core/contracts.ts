@@ -191,9 +191,10 @@ export interface Activatable {
 export const PlayerTuning = {
   walkSpeed: 6.4,
   acceleration: 32,
+  /** How close Chuck must be for something to light up and be actionable. */
   interactionDistance: 1.65,
-  touchPickupDistance: 0.95,
-  releaseDistance: 1.5,
+  /** The lit target only changes when another is nearer by more than this. */
+  focusHysteresis: 0.15,
   dropDistance: 1.12,
   /** Tried in this order, relative to the heading, in degrees. */
   dropAngles: [0, 45, -45, 90, -90, 135, -135, 180],
@@ -204,7 +205,15 @@ export const PlayerTuning = {
   turnRate: 14,
 } as const;
 
+/** The one thing the action would act on right now. It is what lights up. */
+export type FocusTarget =
+  | { kind: 'block'; block: BlockState }
+  | { kind: 'pedestal'; pedestal: PedestalState }
+  | { kind: 'activatable'; target: Activatable };
+
 export interface CarryEvents {
+  /** The lit target changed (null = nothing in reach). */
+  focusChanged: FocusTarget | null;
   /** Chuck took a block into his hands (from the ground or a pedestal). */
   pickedUp: BlockState;
   /** A block was put on the ground. */

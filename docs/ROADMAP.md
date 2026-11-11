@@ -25,8 +25,8 @@ full look.
 | 3 | B-03 `AssetLibrary` | `src/assets/AssetLibrary.ts` | briefed |
 | 3 | B-09 painted material, ink outline, lighting | `src/assets/look/` | briefed |
 | 3 | B-10 letter faces | `src/world/Letter*.ts` | briefed |
-| 3 | B-04 input | `src/input/` | **waits on D1/D2** |
-| 3 | B-06 carry rules | `src/game/` | **waits on D1** |
+| 3 | B-04 input | `src/input/` | briefed |
+| 3 | B-06 carry rules | `src/game/` | briefed |
 | 4 | B-11 views, scene assembly, `main.ts` | `src/world/`, `src/main.ts` | not briefed |
 | 4 | B-12 browser run-through and fixes | as found | — |
 
