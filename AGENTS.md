@@ -16,6 +16,15 @@ assigns you one task at a time through a brief. Do that task and nothing else.
 - If the brief is impossible or contradicts the code, STOP and say so in your
   report. Do not invent a workaround that changes a contract.
 
+## Keep your context small (a session that fills up is lost)
+- Never print a minified or generated file. `node_modules/**/*.mjs`, `*.cjs`,
+  `*.wasm*` and `package-lock.json` are off limits for cat/grep; read the
+  `.d.ts` declarations instead.
+- Pipe every search through `| cut -c1-240 | head -40`.
+- Run one test file at a time (`npx vitest run tests/<file>`) and pipe test
+  output through `| tail -30`.
+- Scratch scripts go in `.agent-logs/` and are deleted before you finish.
+
 ## Code style
 - TypeScript, strict. No `any`, no `@ts-ignore`, no non-null `!` unless a
   comment says why it is safe.

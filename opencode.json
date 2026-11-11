@@ -1,6 +1,9 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "enabled_providers": ["strata", "llamacpp"],
+  "enabled_providers": [
+    "strata",
+    "llamacpp"
+  ],
   "model": "strata/qwen3.8-flash-next-iq2_xs-agent",
   "small_model": "strata/qwen3.8-flash-next-iq2_xs-agent",
   "share": "disabled",
@@ -23,6 +26,28 @@
       "rm -rf ..*": "deny",
       "curl *": "deny",
       "wget *": "deny"
+    }
+  },
+  "provider": {
+    "strata": {
+      "models": {
+        "qwen3.8-flash-next-iq2_xs-agent": {
+          "limit": {
+            "context": 98304,
+            "output": 12288
+          }
+        }
+      }
+    },
+    "llamacpp": {
+      "models": {
+        "qwen3.8-27b": {
+          "limit": {
+            "context": 65536,
+            "output": 10240
+          }
+        }
+      }
     }
   }
 }
