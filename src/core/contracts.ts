@@ -235,3 +235,13 @@ export interface WordEvents {
   /** The sounds were played but they are not (yet) a word. */
   notYet: { letters: string };
 }
+
+/** What the "find the sound" helper reports. Nothing here is a failure state. */
+export interface FindEvents {
+  /** She asked for a sound (also fired when she repeats the request). */
+  asked: { letter: string };
+  /** The child brought the block she asked for. */
+  found: { letter: string; blockId: string };
+  /** The child brought a different block; she names its sound and asks again. */
+  tryAgain: { wanted: string; brought: string };
+}

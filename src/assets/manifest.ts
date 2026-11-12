@@ -97,6 +97,134 @@ export const MODELS = {
     blocksCamera: true,
     castsShadow: true,
   },
+  bakery: {
+    url: 'assets/models/village/bakery.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [1.941, 2.03, 1.841], offset: [-0.109, 2.03, 0.297] },
+    blocksCamera: true,
+    castsShadow: true,
+  },
+  bookshop: {
+    url: 'assets/models/village/bookshop.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [1.76, 2.362, 1.887], offset: [0.014, 2.358, 0.373] },
+    blocksCamera: true,
+    castsShadow: true,
+  },
+  clockHouse: {
+    url: 'assets/models/village/clock_house.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [1.304, 3.39, 1.646], offset: [0.001, 3.23, 0.404] },
+    blocksCamera: true,
+    castsShadow: true,
+  },
+  flowerShop: {
+    url: 'assets/models/village/flower_shop.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [1.79, 1.472, 1.867], offset: [-0.049, 1.468, 0.363] },
+    blocksCamera: true,
+    castsShadow: true,
+  },
+  workshop: {
+    url: 'assets/models/village/workshop.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [2.715, 1.671, 1.767], offset: [0.575, 1.669, 0.073] },
+    blocksCamera: true,
+    castsShadow: true,
+  },
+  windmill: {
+    url: 'assets/models/village/windmill.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [2.216, 3.383, 1.713], offset: [0.0, 3.383, 0.327] },
+    blocksCamera: true,
+    castsShadow: true,
+  },
+  well: {
+    url: 'assets/models/village/well.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'cylinder', radius: 0.877, height: 2.45, offset: [0.018, 1.215, -0.002] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  bench: {
+    url: 'assets/models/village/bench.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [0.923, 0.413, 0.232], offset: [0.003, 0.409, -0.028] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  fingerpost: {
+    url: 'assets/models/village/fingerpost.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'cylinder', radius: 0.25, height: 2.325, offset: [0, 1.158, 0] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  planter: {
+    url: 'assets/models/village/planter.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'cylinder', radius: 0.317, height: 0.931, offset: [0.0, 0.465, 0.0] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  bush: {
+    url: 'assets/models/village/bush.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'cylinder', radius: 0.729, height: 0.931, offset: [0.014, 0.439, 0.032] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  treeB: {
+    url: 'assets/models/village/tree_b.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'cylinder', radius: 0.25, height: 3.35, offset: [0, 1.651, 0] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  wallRun: {
+    url: 'assets/models/village/wall_run.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [2.294, 0.366, 0.413], offset: [-0.007, 0.362, -0.139] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  mushrooms: {
+    url: 'assets/models/village/mushrooms.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'none' },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  blossom: {
+    url: 'assets/models/village/blossom.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'none' },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  woodshed: {
+    url: 'assets/models/cvc/woodshed.glb',
+    clips: [],
+    // Collider from the mesh bounds.
+    collider: { kind: 'box', halfExtents: [1.645, 1.125, 1.168], offset: [0.0, 1.125, 0.0] },
+    blocksCamera: true,
+    castsShadow: true,
+  },
 } as const satisfies Record<string, ModelEntry>;
 
 export type ModelId = keyof typeof MODELS;
