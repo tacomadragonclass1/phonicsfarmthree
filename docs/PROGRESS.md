@@ -9,8 +9,7 @@ Living ledger. Result vocabulary (see `TESTING.md` §4): *unit-tested*,
   **no remote** (kept local by decision). Each task is committed as it
   passes review.
 - Stage A complete. Stage B (vertical slice) in progress.
-- Nothing is viewable in a browser yet; the first runnable page arrives
-  with task B-11e.
+- The vertical slice runs: `npm run build && npx vite preview --port 4317`.
 
 ## Task ledger
 
@@ -27,12 +26,33 @@ Living ledger. Result vocabulary (see `TESTING.md` §4): *unit-tested*,
 | B-04 | Input | Strata | accepted — unit-tested | |
 | B-10 | Letter faces | Strata | accepted — unit-tested | Glyph shapes not yet seen in a browser. |
 | B-09 | Painted material, ink outline, lighting | Strata | accepted — unit-tested | Shaders checked structurally only; untested on a GPU. |
-| B-11d | Collider builder | Strata | running | |
-| B-11a | Block / pedestal / character views | Strata | queued | |
-| B-11b | Page shell, HUD | Strata | queued | |
-| B-11c | World builder | — | briefed | |
-| B-11e | `main.ts` composition root | — | briefed | |
-| B-12 | Browser run-through | — | — | |
+| B-11d | Collider builder | Strata | accepted — unit-tested | |
+| B-11a | Block / pedestal / character views | Strata ×3 | accepted — unit-tested, seen in browser | Two timeouts; tests rewritten small as B-11a3. |
+| B-11b | Page shell, HUD | Strata | accepted — unit-tested, seen in browser | |
+| B-11c | World builder | Strata | accepted — unit-tested, driven in browser | |
+| B-11e | `main.ts` composition root | Strata | accepted — driven in browser | |
+| B-12 | Browser run-through | architect | first pass done | See below. |
+
+## B-12 first browser pass (production build, desktop Brave, via `window.__pf`)
+
+Driven: start, walk, stop against a block, block lights up, pick up, carry,
+stump lights up, place on stump (block at y 0.61), take back, drop on grass.
+All correct.
+
+Four defects no Node test could see, fixed in review by the architect
+(each one to six lines):
+1. Audio loader built URLs against the relative base `./` and threw.
+2. Start-up awaited the audio unlock, which never resolves without a
+   trusted gesture; the game now starts regardless and retries on input.
+3. `FixedStepLoop` stored `requestAnimationFrame` bare and called it as a
+   method ("Illegal invocation"): the loop never ran in a browser.
+4. Physics query groups had membership and filter swapped, so every reach
+   ray cast from inside Chuck hit Chuck. Regression test added.
+
+**Not yet verified:** sound (needs a real key press or tap), frame rate (the
+automated browser window was throttled to about 1 frame a second, so nothing
+about performance can be concluded), keyboard / touch / gamepad on real
+devices, the ink outline weight and the focus highlight (both look faint).
 
 ## Written by the architect (not delegated)
 

@@ -12,8 +12,8 @@ export class FixedStepLoop {
   private readonly simulate: (dt: number) => void;
   private readonly render: (alpha: number, frameDt: number) => void;
   private readonly onError?: (error: unknown) => void;
-  private readonly raf: (cb: (t: number) => void) => number;
-  private readonly caf: (id: number) => void;
+  private readonly raf: ((cb: (t: number) => void) => number) | undefined;
+  private readonly caf: ((id: number) => void) | undefined;
 
   private accumulator = 0;
   /** null until the first tick, which only records a baseline time. */
@@ -35,8 +35,11 @@ export class FixedStepLoop {
     this.simulate = options.simulate;
     this.render = options.render;
     this.onError = options.onError;
-    this.raf = deps.raf ?? globalThis.requestAnimationFrame;
-    this.caf = deps.caf ?? globalThis.cancelAnimationFrame;
+    // Wrapped, not stored bare: the browser's functions throw "Illegal invocation"
+    // when called as a method of anything but the window.
+    const hasRaf = typeof globalThis.requestAnimationFrame === 'function';
+    this.raf = deps.raf ?? (hasRaf ? (callback) => globalThis.requestAnimationFrame(callback) : undefined);
+    this.caf = deps.caf ?? (hasRaf ? (id) => globalThis.cancelAnimationFrame(id) : undefined);
   }
 
   get running(): boolean {
@@ -93,7 +96,7 @@ export class FixedStepLoop {
   private frame = (nowMs: number): void => {
     this.rafId = null;
     this.tick(nowMs);
-    if (this.started) this.rafId = this.raf(this.frame);
+    if (this.started && this.raf) this.rafId = this.raf(this.frame);
   };
 
   private callSimulate(): void {

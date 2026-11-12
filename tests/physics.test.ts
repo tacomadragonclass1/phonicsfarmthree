@@ -83,6 +83,14 @@ describe('canReach', () => {
     expect(world.canReach({ x: 0, y: 1, z: 0 }, { x: 10, y: 1, z: 0 }, ['other'])).toBe(false);
   });
 
+  it('is not blocked by the character the ray starts inside', async () => {
+    const world = await createWorld();
+    const character = world.createCharacter({ x: 0, y: 0.05, z: 0 });
+    settle(world, character);
+    expect(world.canReach({ x: 0, y: 0.6, z: 0 }, { x: 1, y: 0.4, z: 0 })).toBe(true);
+    expect(world.groundHeight(0, 0, 6)).toBeCloseTo(0, 3); // the ground, not his head
+  });
+
   it('sees a wall added in the same step', async () => {
     const world = await createWorld();
     expect(world.canReach({ x: 0, y: 1, z: 0 }, { x: 10, y: 1, z: 0 })).toBe(true);

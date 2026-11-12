@@ -67,7 +67,7 @@ async function boot(): Promise<void> {
       library.load(Object.keys(MODELS) as ModelId[], onProgress),
       PhysicsWorld.create(),
       loadLetterFont(base + FONT.url, FONT.family, FONT.weight),
-      audio.load(SOUNDS, base),
+      audio.load(SOUNDS, new URL(base, document.baseURI).href),
     ]);
 
     const letters = new LetterTextureCache({
@@ -220,7 +220,12 @@ async function boot(): Promise<void> {
     render(0, 0); // one frame so the world is on screen behind the play button
 
     await hud.waitForStart();
-    await audio.unlock();
+    // Never wait on the audio unlock: resume() can stay pending until the browser
+    // sees a gesture it trusts, and the game must start regardless. Later presses retry.
+    const unlock = (): void => void audio.unlock().catch(() => undefined);
+    unlock();
+    window.addEventListener('pointerdown', unlock);
+    window.addEventListener('keydown', unlock);
     hud.hideOverlay();
     hud.setActionVisible(true);
     loop.start();

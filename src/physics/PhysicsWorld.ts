@@ -22,6 +22,13 @@ export interface StaticOptions {
 }
 
 const ALL_LAYERS = Layer.World | Layer.Player | Layer.Block | Layer.Pedestal;
+/**
+ * Groups for a query that should see solid things but never a character. For a
+ * query the FILTER half (low bits) is what it can hit, so the layers go there;
+ * putting them in the membership half made every ray cast from inside Chuck hit
+ * his own capsule.
+ */
+const SOLID_QUERY = ((ALL_LAYERS << 16) | (Layer.World | Layer.Block | Layer.Pedestal)) >>> 0;
 /** `groundHeight` looks this far down. */
 const GROUND_MAX_DROP = 8;
 const NO_ROTATION = { x: 0, y: 0, z: 0, w: 1 };
@@ -143,7 +150,7 @@ export class PhysicsWorld implements WorldQuery, CameraProbe, Disposable {
         body,
         collider,
         controller,
-        filterGroups: interactionGroups(Layer.World | Layer.Block | Layer.Pedestal, ALL_LAYERS),
+        filterGroups: SOLID_QUERY,
         refresh: () => this.refresh(),
       },
       position,
@@ -181,14 +188,14 @@ export class PhysicsWorld implements WorldQuery, CameraProbe, Disposable {
         return true;
       },
       undefined,
-      interactionGroups(Layer.World | Layer.Block | Layer.Pedestal, ALL_LAYERS),
+      SOLID_QUERY,
     );
     return !blocked;
   }
 
   groundHeight(x: number, z: number, fromY: number): number | null {
     const ray = new RAPIER.Ray({ x, y: fromY, z }, { x: 0, y: -1, z: 0 });
-    const hit = this.world.castRay(ray, GROUND_MAX_DROP, true, undefined, interactionGroups(Layer.World, ALL_LAYERS));
+    const hit = this.world.castRay(ray, GROUND_MAX_DROP, true, undefined, interactionGroups(ALL_LAYERS, Layer.World));
     return hit ? fromY - hit.timeOfImpact : null;
   }
 
