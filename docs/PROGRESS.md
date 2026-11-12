@@ -71,6 +71,25 @@ Small exact briefs with a size cap on tests and `timeout` in front of every
 test run took Strata 3-11 minutes each, against repeated 30-minute timeouts
 for the larger briefs of stage B.
 
+## Stage D — village and "Find it" (first pass, 2026-11-11)
+
+| ID | Task | Model | State |
+|---|---|---|---|
+| W-01 | Village built from `src/world/layout.ts`: 3 x 3 mirrored terrain, 46 props, world edge | Strata, 7 min | accepted — seen in browser |
+| F-01 | `FindRules` | Strata, 5 min | accepted — unit-tested |
+| F-02 | Annette in the world, Find it wired | Strata, 3 min | accepted — driven in browser |
+
+Driven in the browser: Annette lit, asked for a sound, a wrong block left
+the request standing, the right block cleared it.
+
+Found in the browser and fixed in the layout data: the terrain mesh is not
+centred on its origin, so tiles at a round 26 m left a 0.16 m gap on two
+sides. Tiles now sit at twice the shared edge coordinate.
+
+Open: on a hilltop with rising ground behind Chuck the camera collision
+pulls right in to its 3.5 m minimum (seen at x -14, z -10). Props were
+placed from measurements, not by eye. Mirrored lanes repeat across tiles.
+
 ## Written by the architect (not delegated)
 
 Docs, briefs, `AGENTS.md`, `opencode.json`, `package.json`, `tsconfig.json`,

@@ -7,23 +7,27 @@ import type { ModelId } from '../assets/manifest';
  * "further away". A yaw of 0 shows a building's front to the home camera.
  */
 
-/** Side of one terrain tile, metres. */
-export const TILE_SIZE = 26;
-
 /**
  * The one terrain model, laid 3 x 3. Neighbouring tiles are mirrored so the
- * hills meet at every seam (the model's edges are not level).
+ * hills meet at every seam (the model's edges are not level). The mesh is not
+ * centred on its origin (x -13..12.920000076293945, z -12.920000076293945..13), so a mirrored
+ * neighbour sits at twice the shared edge's coordinate, not at a round 26.
  */
+const E = 25.84;
+const W = -26;
+const N = -25.84;
+const S = 26;
+
 export const TERRAIN_TILES: readonly { id: string; x: number; z: number; mirrorX: boolean; mirrorZ: boolean }[] = [
   { id: 'terrain', x: 0, z: 0, mirrorX: false, mirrorZ: false },
-  { id: 'terrain-w', x: -TILE_SIZE, z: 0, mirrorX: true, mirrorZ: false },
-  { id: 'terrain-e', x: TILE_SIZE, z: 0, mirrorX: true, mirrorZ: false },
-  { id: 'terrain-n', x: 0, z: -TILE_SIZE, mirrorX: false, mirrorZ: true },
-  { id: 'terrain-s', x: 0, z: TILE_SIZE, mirrorX: false, mirrorZ: true },
-  { id: 'terrain-nw', x: -TILE_SIZE, z: -TILE_SIZE, mirrorX: true, mirrorZ: true },
-  { id: 'terrain-ne', x: TILE_SIZE, z: -TILE_SIZE, mirrorX: true, mirrorZ: true },
-  { id: 'terrain-sw', x: -TILE_SIZE, z: TILE_SIZE, mirrorX: true, mirrorZ: true },
-  { id: 'terrain-se', x: TILE_SIZE, z: TILE_SIZE, mirrorX: true, mirrorZ: true },
+  { id: 'terrain-w', x: W, z: 0, mirrorX: true, mirrorZ: false },
+  { id: 'terrain-e', x: E, z: 0, mirrorX: true, mirrorZ: false },
+  { id: 'terrain-n', x: 0, z: N, mirrorX: false, mirrorZ: true },
+  { id: 'terrain-s', x: 0, z: S, mirrorX: false, mirrorZ: true },
+  { id: 'terrain-nw', x: W, z: N, mirrorX: true, mirrorZ: true },
+  { id: 'terrain-ne', x: E, z: N, mirrorX: true, mirrorZ: true },
+  { id: 'terrain-sw', x: W, z: S, mirrorX: true, mirrorZ: true },
+  { id: 'terrain-se', x: E, z: S, mirrorX: true, mirrorZ: true },
 ];
 
 /** The player may not walk past this distance from the origin on either axis. */
