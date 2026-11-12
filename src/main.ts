@@ -259,6 +259,7 @@ async function boot(): Promise<void> {
       const dir = screenToWorld(s.moveX, s.moveY, rig.forwardYaw);
 
       copyVec(curr, prev);
+      if (s.jump) player.body.jump();
       player.body.move(dir.x, dir.z, dt);
       physics.step(dt);
       copyVec(player.body.position, curr);

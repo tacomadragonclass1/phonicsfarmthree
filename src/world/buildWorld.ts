@@ -174,8 +174,8 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   // The leaf is drawn by the swinging mesh; this is what stops Chuck walking through the gap.
   physics.addStatic({
     id: 'gate',
-    shape: { kind: 'box', halfExtents: [gateLayout.width / 2, 0.6, 0.12] },
-    position: { x: gateLayout.x, y: groundY(gateLayout.x, fence.north) + 0.6, z: fence.north },
+    shape: { kind: 'box', halfExtents: [gateLayout.width / 2, 1.5, 0.12] },
+    position: { x: gateLayout.x, y: groundY(gateLayout.x, fence.north) + 1.5, z: fence.north },
     layer: Layer.World,
     blocksCamera: false,
   });

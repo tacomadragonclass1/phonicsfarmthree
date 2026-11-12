@@ -17,7 +17,9 @@ export type GamepadReader = () => ArrayLike<GamepadLike | null>;
 const LEFT_DEADZONE = 0.2;
 const RIGHT_DEADZONE = 0.25;
 const DPAD = { up: 12, down: 13, left: 14, right: 15 };
-const ACTION_BUTTON = 0;
+/** Xbox layout: A (0) jumps, B (1) picks up and puts down. */
+const JUMP_BUTTON = 0;
+const ACTION_BUTTON = 1;
 
 /** Rescaled so the edge of the deadzone reads 0 and full deflection reads 1. */
 function rescale(value: number, deadzone: number): number {
@@ -33,6 +35,7 @@ export class GamepadSource implements InputSource {
   /** Pad seen on the previous sample; null means "no baseline yet". */
   private pad: GamepadLike | null = null;
   private actionWasPressed = false;
+  private jumpWasPressed = false;
 
   constructor(getGamepads: GamepadReader) {
     this.getGamepads = getGamepads;
@@ -61,6 +64,7 @@ export class GamepadSource implements InputSource {
       // re-plug with the button already held cannot fire an action.
       this.pad = null;
       this.actionWasPressed = false;
+      this.jumpWasPressed = false;
       return;
     }
 
@@ -72,6 +76,11 @@ export class GamepadSource implements InputSource {
     if (isNewPad) this.actionWasPressed = isPressed;
     else if (isPressed && !this.actionWasPressed) out.action = true;
     this.actionWasPressed = isPressed;
+
+    const jumpPressed = this.pressed(pad, JUMP_BUTTON);
+    if (isNewPad) this.jumpWasPressed = jumpPressed;
+    else if (jumpPressed && !this.jumpWasPressed) out.jump = true;
+    this.jumpWasPressed = jumpPressed;
 
     const dpadX = (this.pressed(pad, DPAD.right) ? 1 : 0) - (this.pressed(pad, DPAD.left) ? 1 : 0);
     const dpadY = (this.pressed(pad, DPAD.down) ? 1 : 0) - (this.pressed(pad, DPAD.up) ? 1 : 0);
@@ -96,6 +105,7 @@ export class GamepadSource implements InputSource {
   release(): void {
     this.pad = null;
     this.actionWasPressed = false;
+    this.jumpWasPressed = false;
   }
 
   dispose(): void {

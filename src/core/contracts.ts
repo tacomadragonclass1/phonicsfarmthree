@@ -68,6 +68,8 @@ export interface InputState {
   moveY: number;
   /** True for exactly one simulation step per press of the action. */
   action: boolean;
+  /** True for exactly one simulation step per press of jump. */
+  jump: boolean;
   /** Camera swing rate in [-1, 1]. Positive swings the view to the right. */
   cameraYaw: number;
 }
@@ -191,6 +193,8 @@ export interface Activatable {
 export const PlayerTuning = {
   walkSpeed: 6.4,
   acceleration: 32,
+  /** Take-off speed; with the character's gravity of 20 this is a hop of about 0.9 m. */
+  jumpSpeed: 6,
   /** How close Chuck must be for something to light up and be actionable. */
   interactionDistance: 1.65,
   /** The lit target only changes when another is nearer by more than this. */

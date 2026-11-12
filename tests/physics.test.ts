@@ -268,6 +268,29 @@ describe('CharacterBody', () => {
     expect(blocked.position.y).toBeLessThan(0.05);
   });
 
+  it('jumps about 0.9 m from the ground, lands again, and cannot jump in the air', async () => {
+    const world = await createWorld();
+    const character = world.createCharacter({ x: 0, y: 0.5, z: 0 });
+    expect(settle(world, character)).toBe(true);
+    const floor = character.position.y;
+
+    character.jump();
+    let peak = floor;
+    let landedAt = -1;
+    for (let i = 0; i < 120; i++) {
+      if (i === 10) character.jump(); // in the air: must be ignored
+      character.move(0, 0, DT);
+      world.step(DT);
+      peak = Math.max(peak, character.position.y);
+      if (i > 5 && character.grounded) { landedAt = i; break; }
+    }
+    expect(peak - floor).toBeGreaterThan(0.7);
+    expect(peak - floor).toBeLessThan(1.05);
+    expect(landedAt).toBeGreaterThan(25); // one hop of ~0.6 s, not cut short or doubled
+    expect(landedAt).toBeLessThan(45);
+    expect(character.position.y).toBeCloseTo(floor, 1);
+  });
+
   it('teleports and zeroes velocity', async () => {
     const world = await createWorld();
     const character = world.createCharacter({ x: 0, y: 1, z: 0 });

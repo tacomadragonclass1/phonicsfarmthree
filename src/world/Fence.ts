@@ -35,8 +35,11 @@ const RAIL_DEPTH = 0.04;
 /** Cap: radius and height, radius as a fraction of the picket width. */
 const CAP_RADIUS = 0.62;
 const CAP_HEIGHT = 0.14;
-/** Colliders are thicker than the boards so a ray crossing the fence hits. */
-const COLLIDER_HALF_HEIGHT = 0.6;
+/**
+ * Colliders are thicker than the boards so a ray crossing the fence hits, and far
+ * taller than the pickets so a jump (even one taken from on top of a block) cannot clear it.
+ */
+const COLLIDER_HALF_HEIGHT = 1.5;
 const COLLIDER_HALF_DEPTH = 0.12;
 const MAX_COLLIDER_PIECE = 2;
 

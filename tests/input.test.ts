@@ -51,7 +51,7 @@ function keyEvent(code: string, repeat = false): FakeKeyEvent {
 }
 
 function newState(): InputState {
-  return { moveX: 0, moveY: 0, action: false, cameraYaw: 0 };
+  return { moveX: 0, moveY: 0, action: false, jump: false, cameraYaw: 0 };
 }
 
 /** Sources add into a state the manager has zeroed, so tests zero it the same way. */
@@ -59,6 +59,7 @@ function sample(source: InputSource, out: InputState): InputState {
   out.moveX = 0;
   out.moveY = 0;
   out.action = false;
+  out.jump = false;
   out.cameraYaw = 0;
   source.sample(out);
   return out;
@@ -263,22 +264,22 @@ describe('GamepadSource', () => {
     sample(source, out);
     expect(out.action).toBe(false); // the first sample is the baseline
 
-    pressed.add(0);
+    pressed.add(1);
     sample(source, out);
     expect(out.action).toBe(true);
     sample(source, out);
     expect(out.action).toBe(false);
 
-    pressed.delete(0);
+    pressed.delete(1);
     sample(source, out);
     expect(out.action).toBe(false);
-    pressed.add(0);
+    pressed.add(1);
     sample(source, out);
     expect(out.action).toBe(true);
   });
 
   it('an unplugged pad contributes nothing and a replug with the button held does not fire', () => {
-    const pressed = new Set<number>([0]);
+    const pressed = new Set<number>([1]);
     const pad = fakePad('standard', [0.5, 0, 0, 0], pressed);
     const pads: Array<GamepadLike | null> = [pad];
     const { source, out } = setup(pads);
@@ -299,10 +300,29 @@ describe('GamepadSource', () => {
     expect(out.action).toBe(false);
     expect(out.moveX).toBeCloseTo(0.375);
 
-    pressed.delete(0);
+    pressed.delete(1);
     sample(source, out);
+    pressed.add(1);
+    sample(source, out);
+    expect(out.action).toBe(true);
+  });
+
+  it('A (button 0) jumps once per press and is not the action; B (button 1) is the action and not a jump', () => {
+    const pressed = new Set<number>();
+    const { source, out } = setup([fakePad('standard', [0, 0, 0, 0], pressed)]);
+    sample(source, out); // baseline
+
     pressed.add(0);
     sample(source, out);
+    expect(out.jump).toBe(true);
+    expect(out.action).toBe(false);
+    sample(source, out);
+    expect(out.jump).toBe(false); // held, not pressed again
+
+    pressed.delete(0);
+    pressed.add(1);
+    sample(source, out);
+    expect(out.jump).toBe(false);
     expect(out.action).toBe(true);
   });
 
@@ -322,14 +342,14 @@ describe('GamepadSource', () => {
   });
 
   it('release resets the edge state', () => {
-    const pressed = new Set<number>([0]);
+    const pressed = new Set<number>([1]);
     const { source, out } = setup([fakePad('standard', [0, 0, 0, 0], pressed)]);
 
     sample(source, out);
     expect(out.action).toBe(false); // first sample is the baseline
-    pressed.delete(0);
+    pressed.delete(1);
     sample(source, out);
-    pressed.add(0);
+    pressed.add(1);
     sample(source, out);
     expect(out.action).toBe(true);
 
@@ -516,6 +536,7 @@ describe('InputManager', () => {
     moveX,
     moveY,
     action,
+    jump: false,
     cameraYaw,
   });
 

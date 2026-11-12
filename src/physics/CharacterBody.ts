@@ -46,6 +46,8 @@ export class CharacterBody {
    * movement each step.
    */
   private readonly intent: { x: number; z: number };
+  /** Set by jump(), spent by the next move(). */
+  private jumpQueued = false;
 
   constructor(ctx: CharacterContext, position: Vec3) {
     this.ctx = ctx;
@@ -61,12 +63,19 @@ export class CharacterBody {
    * applies the stick-to-ground or gravity speed, then moves through the
    * character controller; `velocity` is what the controller actually allowed.
    */
+  /** Hop, if he is standing on something; ignored in the air. */
+  jump(): void {
+    if (this.grounded) this.jumpQueued = true;
+  }
+
   move(wishX: number, wishZ: number, dt: number): void {
     if (dt <= 0) return;
 
     this.intent.x = approach(this.intent.x, wishX * PlayerTuning.walkSpeed, PlayerTuning.acceleration * dt);
     this.intent.z = approach(this.intent.z, wishZ * PlayerTuning.walkSpeed, PlayerTuning.acceleration * dt);
-    this.velocity.y = this.grounded ? -STICK_SPEED : this.velocity.y - GRAVITY * dt;
+    if (this.jumpQueued && this.grounded) this.velocity.y = PlayerTuning.jumpSpeed;
+    else this.velocity.y = this.grounded ? -STICK_SPEED : this.velocity.y - GRAVITY * dt;
+    this.jumpQueued = false;
 
     const delta = { x: this.intent.x * dt, y: this.velocity.y * dt, z: this.intent.z * dt };
     this.ctx.controller.computeColliderMovement(this.ctx.collider, delta, undefined, this.ctx.filterGroups);

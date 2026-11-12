@@ -16,7 +16,7 @@ export class InputManager {
   private readonly sources: readonly InputSource[];
 
   /** Reused every step: the caller must not keep it across samples. */
-  private readonly state: InputState = { moveX: 0, moveY: 0, action: false, cameraYaw: 0 };
+  private readonly state: InputState = { moveX: 0, moveY: 0, action: false, jump: false, cameraYaw: 0 };
 
   constructor(sources: InputSource[]) {
     this.sources = sources;
@@ -27,6 +27,7 @@ export class InputManager {
     out.moveX = 0;
     out.moveY = 0;
     out.action = false;
+    out.jump = false;
     out.cameraYaw = 0;
 
     for (const source of this.sources) source.sample(out);
