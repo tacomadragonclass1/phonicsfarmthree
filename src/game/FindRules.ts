@@ -24,6 +24,8 @@ export interface FindRulesOptions {
  * The "find it" helper: she asks for a sound, the child brings a block, and
  * she says whether that was the one. No rendering, no audio of its own -- it
  * only asks the shared sound player to speak, and never listens to it.
+ * `blocks` is live: the game removes a block when it is found, so letters are
+ * always chosen from what is still there.
  */
 export class FindRules implements EventSource<FindEvents> {
   private readonly blocks: readonly BlockState[];
@@ -38,6 +40,8 @@ export class FindRules implements EventSource<FindEvents> {
   private currentLetter: string | null = null;
   /** The letter she last asked for, so she does not repeat it after a find. */
   private previousLetter: string | null = null;
+  /** Set once `complete` has been emitted: she has nothing left to ask for. */
+  private finished = false;
 
   constructor(options: FindRulesOptions) {
     this.blocks = options.blocks;
@@ -52,13 +56,46 @@ export class FindRules implements EventSource<FindEvents> {
     return this.currentLetter;
   }
 
+  /** True once `complete` has been emitted; she says nothing afterwards. */
+  get done(): boolean {
+    return this.finished;
+  }
+
+  /** She makes her first request on her own, without being talked to. */
+  begin(): void {
+    if (this.finished || this.currentLetter !== null) return;
+    const letter = this.chooseLetter();
+    if (letter === null) return;
+    this.currentLetter = letter;
+    this.ask(letter);
+  }
+
+  /**
+   * Called by the game after it has removed the found block from `blocks`.
+   * She gives the praise here because the game speaks once the block is gone.
+   */
+  next(): void {
+    if (this.finished) return;
+
+    const letter = this.chooseLetter();
+    if (letter === null) {
+      this.sound.playSequence([this.praiseKey]);
+      this.finished = true;
+      this.emitter.emit('complete');
+      return;
+    }
+
+    this.currentLetter = letter;
+    this.sound.playSequence([this.praiseKey, this.askKey, letter]);
+    this.emitter.emit('asked', { letter });
+  }
+
   /** Chuck pressed the action in front of her. */
   talk(): void {
+    if (this.finished) return;
+
     if (this.currentLetter === null) {
-      const letter = this.chooseLetter();
-      if (letter === null) return;
-      this.currentLetter = letter;
-      this.ask(letter);
+      this.begin();
       return;
     }
 
@@ -69,7 +106,7 @@ export class FindRules implements EventSource<FindEvents> {
     }
 
     if (block.letter === this.currentLetter) {
-      this.sound.playSequence([this.praiseKey]);
+      // Silent: the game removes the block and calls `next()`, which speaks.
       this.emitter.emit('found', { letter: this.currentLetter, blockId: block.id });
       this.previousLetter = this.currentLetter;
       this.currentLetter = null;

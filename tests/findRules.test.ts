@@ -30,11 +30,11 @@ function makeBlock(id: string, letter: string): BlockState {
 }
 
 /** Rules with their events and played keys recorded. `random` defaults to 0. */
-function setup(blocks: readonly BlockState[], carried: () => BlockState | null, random: () => number = () => 0) {
+function setup(blocks: BlockState[], carried: () => BlockState | null, random: () => number = () => 0) {
   const sound = new FakeSound();
   const rules = new FindRules({ blocks, sound, carried, random });
   const events: Recorded[] = [];
-  for (const event of ['asked', 'found', 'tryAgain'] as const) {
+  for (const event of ['asked', 'found', 'tryAgain', 'complete'] as const) {
     rules.on(event, (payload) => events.push({ event, payload }));
   }
   return { rules, sound, events };
@@ -53,6 +53,20 @@ describe('FindRules', () => {
     expect(events[0].payload).toEqual({ letter: 's' });
     expect(rules.wanted).toBe('s');
     expect(sound.played).toEqual([['annette_find', 's']]);
+  });
+
+  it('begin asks without being talked to', () => {
+    const { rules, sound, events } = setup([makeBlock('b1', 's'), makeBlock('b2', 'a')], () => null);
+
+    rules.begin();
+    expect(rules.wanted).toBe('a');
+    expect(names(events)).toEqual(['asked']);
+    expect(sound.played).toEqual([['annette_find', 'a']]);
+
+    // A second begin does nothing while something is already wanted.
+    rules.begin();
+    expect(names(events)).toEqual(['asked']);
+    expect(sound.played.length).toBe(1);
   });
 
   it('the first letter is the lowest of the sorted distinct letters', () => {
@@ -76,7 +90,7 @@ describe('FindRules', () => {
     expect(sound.played).toEqual([['annette_find', 'a'], ['annette_find', 'a']]);
   });
 
-  it('praises the block she asked for and clears the request', () => {
+  it('found is silent: the game removes the block and next() praises and asks', () => {
     const wanted = makeBlock('b2', 'a');
     const blocks = [makeBlock('b1', 's'), wanted, makeBlock('b3', 't')];
     let carried: BlockState | null = null;
@@ -85,9 +99,40 @@ describe('FindRules', () => {
     rules.talk(); // asks for 'a'
     carried = wanted;
     rules.talk();
-    expect(sound.played).toEqual([['annette_find', 'a'], ['annette_good']]);
     expect(names(events)).toEqual(['asked', 'found']);
     expect(events[1].payload).toEqual({ letter: 'a', blockId: 'b2' });
+    expect(rules.wanted).toBeNull();
+    expect(sound.played).toEqual([['annette_find', 'a']]);
+
+    blocks.splice(1, 1); // the game removes the found block
+    rules.next();
+    expect(names(events)).toEqual(['asked', 'found', 'asked']);
+    expect(events[2].payload).toEqual({ letter: 's' });
+    expect(rules.wanted).toBe('s');
+    expect(sound.played).toEqual([['annette_find', 'a'], ['annette_good', 'annette_find', 's']]);
+  });
+
+  it('next with no letters left praises once and completes', () => {
+    const block = makeBlock('b1', 'a');
+    const blocks = [block];
+    let carried: BlockState | null = null;
+    const { rules, sound, events } = setup(blocks, () => carried);
+
+    rules.talk();
+    carried = block;
+    rules.talk();
+    blocks.length = 0; // the game removes it
+    rules.next();
+
+    expect(names(events)).toEqual(['asked', 'found', 'complete']);
+    expect(sound.played).toEqual([['annette_find', 'a'], ['annette_good']]);
+    expect(rules.done).toBe(true);
+
+    rules.next();
+    rules.begin();
+    rules.talk();
+    expect(names(events)).toEqual(['asked', 'found', 'complete']);
+    expect(sound.played.length).toBe(2);
     expect(rules.wanted).toBeNull();
   });
 
@@ -111,11 +156,13 @@ describe('FindRules', () => {
 
       rules.talk();
       const first = rules.wanted;
-      expect(first).not.toBeNull();
-      carried = blocks.find((block) => block.letter === first) ?? null;
+      const found = blocks.find((block) => block.letter === first);
+      if (!found) throw new Error('the first request had no block');
+      carried = found;
       rules.talk(); // she gets the block she asked for
+      blocks.splice(blocks.indexOf(found), 1);
       carried = null;
-      rules.talk(); // asks for a new one
+      rules.next(); // praises, then asks for a new one
 
       expect(rules.wanted).not.toBe(first);
       expect(names(events)).toEqual(['asked', 'found', 'asked']);
@@ -129,21 +176,6 @@ describe('FindRules', () => {
 
     rules.talk();
     expect(rules.wanted).toBe('s');
-  });
-
-  it('asks for the only block again after finding it', () => {
-    const block = makeBlock('b1', 's');
-    let carried: BlockState | null = null;
-    const { rules, sound, events } = setup([block], () => carried);
-
-    rules.talk();
-    carried = block;
-    rules.talk();
-    carried = null;
-    rules.talk();
-
-    expect(names(events)).toEqual(['asked', 'found', 'asked']);
-    expect(sound.played).toEqual([['annette_find', 's'], ['annette_good'], ['annette_find', 's']]);
   });
 
   it('does nothing when there are no blocks', () => {

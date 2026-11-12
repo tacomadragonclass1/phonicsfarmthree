@@ -154,3 +154,70 @@ canvas {
   background: #fff6e0;
   clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
 }
+
+/* Medal tray: one gold disc for each letter found. */
+.medal-tray {
+  position: fixed;
+  top: max(16px, env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+  max-width: min(46vw, 520px);
+  pointer-events: none;
+}
+
+.medal {
+  position: relative;
+  width: clamp(48px, 7vmin, 76px);
+  height: clamp(48px, 7vmin, 76px);
+  border: 4px solid #2a211c;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3b0, #ffd24a 55%, #e0a31e);
+  box-shadow: 0 8px 18px rgba(42, 33, 28, 0.35);
+  display: grid;
+  place-items: center;
+}
+
+/* Ribbon: two short strips meeting above the disc. */
+.medal::before {
+  content: '';
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 30px;
+  height: 12px;
+  transform: translateX(-50%);
+  background: linear-gradient(90deg, #d94f3d, #d94f3d 42%, transparent 42%, transparent 58%, #d94f3d 58%, #d94f3d);
+}
+
+.medal span {
+  font-family: ui-rounded, 'Segoe UI Rounded', 'Nunito', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: clamp(29px, 4.2vmin, 46px); /* about 60% of the disc */
+  color: #2a211c;
+  text-transform: lowercase;
+}
+
+@keyframes medal-pop {
+  0% {
+    transform: scale(0);
+  }
+  70% {
+    transform: scale(1.25);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.medal.is-new {
+  animation: medal-pop 0.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .medal.is-new {
+    animation: none;
+  }
+}

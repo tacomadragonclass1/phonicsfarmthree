@@ -182,6 +182,56 @@ describe('Hud', () => {
     expect(button.classes.has('is-ready')).toBe(false);
   });
 
+  it('the first medal creates the tray', () => {
+    const { hud, doc, root } = makeHud();
+    hud.addMedal('A');
+
+    const tray = find(doc, 'medal-tray');
+    expect(tray.attrs.get('aria-label')).toBe('Letters found');
+    expect(root.children).toEqual([find(doc, 'action-button'), tray]);
+
+    const medal = find(doc, 'medal');
+    expect(medal.parent).toBe(tray);
+    expect(medal.classes.has('is-new')).toBe(true);
+    expect(medal.children[0].tag).toBe('span');
+    expect(medal.children[0].textContent).toBe('a');
+    expect(hud.medalCount).toBe(1);
+  });
+
+  it('a second letter adds a medal and moves is-new to it', () => {
+    const { hud, doc } = makeHud();
+    hud.addMedal('a');
+    const first = find(doc, 'medal');
+
+    hud.addMedal('t');
+    const medals = findAll(doc, 'medal');
+    expect(medals.length).toBe(2);
+    expect(medals[1]).not.toBe(first);
+    expect(medals[1].children[0].textContent).toBe('t');
+    expect(first.classes.has('is-new')).toBe(false);
+    expect(medals[1].classes.has('is-new')).toBe(true);
+    expect(hud.medalCount).toBe(2);
+  });
+
+  it('a repeat letter adds nothing', () => {
+    const { hud, doc } = makeHud();
+    hud.addMedal('a');
+    hud.addMedal('a');
+
+    expect(findAll(doc, 'medal').length).toBe(1);
+    expect(hud.medalCount).toBe(1);
+  });
+
+  it('dispose removes the tray', () => {
+    const { hud, doc, root } = makeHud();
+    hud.addMedal('a');
+    const tray = find(doc, 'medal-tray');
+
+    hud.dispose();
+    expect(tray.parent).toBeNull();
+    expect(root.children.length).toBe(0);
+  });
+
   it('dispose removes everything it added', () => {
     const { hud, doc, root, presses } = makeHud();
     hud.showLoading(1, 2);

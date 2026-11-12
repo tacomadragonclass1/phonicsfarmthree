@@ -49,6 +49,9 @@ export class Hud implements Disposable {
   private panel: ElLike | null = null;
   private fill: ElLike | null = null;
   private overlayKind = '';
+  private tray: ElLike | null = null;
+  private newestMedal: ElLike | null = null;
+  private readonly medalLetters = new Set<string>();
   private disposed = false;
 
   constructor(options: HudOptions) {
@@ -115,11 +118,38 @@ export class Hud implements Disposable {
     this.action.classList.toggle('is-hidden', !visible);
   }
 
+  /** A medal for a found letter, added to the top-right tray. */
+  addMedal(letter: string): void {
+    if (this.disposed) return;
+    const key = letter.toLowerCase();
+    if (this.medalLetters.has(key)) return; // one medal per letter
+    this.medalLetters.add(key);
+
+    const tray = this.tray ?? this.makeTray();
+    if (this.newestMedal) this.newestMedal.classList.remove('is-new');
+
+    const medal = this.doc.createElement('div');
+    medal.className = 'medal';
+    medal.classList.add('is-new');
+    const glyph = this.doc.createElement('span');
+    glyph.textContent = key;
+    medal.appendChild(glyph);
+    tray.appendChild(medal);
+    this.newestMedal = medal;
+  }
+
+  get medalCount(): number {
+    return this.medalLetters.size;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
     this.action.removeEventListener('pointerdown', this.actionListener);
     this.removeOverlay();
+    if (this.tray) this.tray.remove();
+    this.tray = null;
+    this.newestMedal = null;
     this.action.remove();
   }
 
@@ -151,6 +181,15 @@ export class Hud implements Disposable {
     panel.appendChild(track);
     this.fill = fill;
     return fill;
+  }
+
+  private makeTray(): ElLike {
+    const tray = this.doc.createElement('div');
+    tray.className = 'medal-tray';
+    tray.setAttribute('aria-label', 'Letters found');
+    this.root.appendChild(tray);
+    this.tray = tray;
+    return tray;
   }
 
   private removeOverlay(): void {
