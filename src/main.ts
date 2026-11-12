@@ -10,6 +10,7 @@ import { PhonemeSequencer } from './audio/PhonemeSequencer';
 import { FollowCameraRig, screenToWorld } from './camera/FollowCameraRig';
 import { applyPose, createGameCamera } from './camera/applyRig';
 import { CarryRules } from './game/CarryRules';
+import { FindRules } from './game/FindRules';
 import { WordRules } from './game/WordRules';
 import { ButtonSource } from './input/ButtonSource';
 import { GamepadSource } from './input/GamepadSource';
@@ -98,11 +99,22 @@ async function boot(): Promise<void> {
       },
     };
 
-    const rules = new CarryRules({
+    // `rules` is built after `find`, so the carried block is read lazily: the
+    // closure only runs when she is talked to, long after start-up.
+    let rules: CarryRules;
+    const find = new FindRules({ blocks: world.blocks, sound: sequencer, carried: () => rules.carried });
+
+    const annette: Activatable = {
+      id: 'annette',
+      position: world.annette.position,
+      activate: () => find.talk(),
+    };
+
+    rules = new CarryRules({
       world: physics,
       blocks: world.blocks,
       pedestals: world.pedestals,
-      activatables: [bell],
+      activatables: [bell, annette],
     });
 
     // Home yaw PI looks along -Z, so screen-right is +X and words read left to right.
@@ -129,9 +141,14 @@ async function boot(): Promise<void> {
       focusedView?.setFocused(false);
       focusedView = null;
       if (target !== null) {
+        // An activatable has no highlight view: Annette is not a thing that lights up.
         const view: FocusedView | null = target.kind === 'block'
           ? world.blockViews.get(target.block.id) ?? null
-          : target.kind === 'pedestal' ? world.pedestalViews.get(target.pedestal.id) ?? null : world.bell.view;
+          : target.kind === 'pedestal'
+            ? world.pedestalViews.get(target.pedestal.id) ?? null
+            : target.target.id === 'bell'
+              ? world.bell.view
+              : null;
         if (view) {
           view.setFocused(true);
           focusedView = view;
@@ -151,6 +168,9 @@ async function boot(): Promise<void> {
     // Feedback is never punitive: a non-word and an empty row stay quiet.
     words.on('notYet', () => undefined);
     words.on('nothingToSound', () => undefined);
+
+    // She speaks her own lines; the chime is the game's celebration on top.
+    find.on('found', () => audio.chime(880));
 
     rules.on('pickedUp', (block) => {
       physics.setEnabled(block.id, false);
@@ -241,6 +261,7 @@ async function boot(): Promise<void> {
         focus: rules.focus === null ? null : targetId(rules.focus),
         carried: rules.carried === null ? null : rules.carried.id,
         sounding: words.sounding,
+        wanted: find.wanted,
         stumps: world.pedestals.map((pedestal) => pedestal.blockId),
         blocks: world.blocks.map((block) => ({
           id: block.id, letter: block.letter, position: { ...block.position },

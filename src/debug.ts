@@ -58,6 +58,8 @@ export interface DebugHook {
     carried: string | null;
     /** True while the bell's letters are being sounded. */
     sounding: boolean;
+    /** The sound Annette is waiting for, or null before she asks. */
+    wanted: string | null;
     /** Block id on each stump, left to right, or null for an empty one. */
     stumps: (string | null)[];
     blocks: {

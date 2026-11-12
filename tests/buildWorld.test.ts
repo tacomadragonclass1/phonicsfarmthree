@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { AssetLibrary, type GltfLoaderLike } from '../src/assets/AssetLibrary';
+import { MODELS, type ModelId } from '../src/assets/manifest';
 import { PhysicsWorld } from '../src/physics/PhysicsWorld';
 import { LetterTextureCache, type CanvasLike, type Ctx2DLike } from '../src/world/LetterTexture';
-import { blockColliderCentre, buildWorld, PEDESTAL, SLICE_LAYOUT, type SliceWorld } from '../src/world/buildWorld';
+import { BELL, BLOCKS, PEDESTALS, PROPS, TERRAIN_TILES } from '../src/world/layout';
+import { blockColliderCentre, buildWorld, PEDESTAL, type SliceWorld } from '../src/world/buildWorld';
 
 const DT = 1 / 60;
-const MODEL_IDS = ['terrain', 'cottage', 'tree', 'pedestalPost', 'pedestalCap', 'block', 'chuck', 'bell', 'bellFrame'] as const;
+const MODEL_IDS = Object.keys(MODELS) as ModelId[];
 
 class FakeCtx implements Ctx2DLike {
   font = '';
@@ -88,9 +90,8 @@ const fakeLoader: GltfLoaderLike = {
         : url.endsWith('chuck.glb')
           ? chuckScene()
           : singleBoxScene();
-    const clips = url.endsWith('chuck.glb')
-      ? [new THREE.AnimationClip('idle', 1, []), new THREE.AnimationClip('walk', 1, [])]
-      : [];
+    // Every url gets the clips the manifest might require, so any model can be loaded.
+    const clips = [new THREE.AnimationClip('idle', 1, []), new THREE.AnimationClip('walk', 1, [])];
     return { scene, animations: clips };
   },
 };
@@ -98,16 +99,22 @@ const fakeLoader: GltfLoaderLike = {
 interface Fixture {
   scene: THREE.Scene;
   physics: PhysicsWorld;
+  library: AssetLibrary;
+  letters: LetterTextureCache;
   world: SliceWorld;
 }
 
-async function setup(): Promise<Fixture> {
+async function fixtureBase(): Promise<Omit<Fixture, 'world'>> {
   const physics = await PhysicsWorld.create();
   const library = new AssetLibrary({ baseUrl: '/', loader: fakeLoader });
-  await library.load([...MODEL_IDS]);
+  await library.load(MODEL_IDS);
   const letters = new LetterTextureCache({ createCanvas: (size) => new FakeCanvas(size, size) });
-  const scene = new THREE.Scene();
-  return { scene, physics, world: buildWorld({ scene, library, physics, letters }) };
+  return { scene: new THREE.Scene(), physics, library, letters };
+}
+
+async function setup(): Promise<Fixture> {
+  const base = await fixtureBase();
+  return { ...base, world: buildWorld(base) };
 }
 
 function meshesUnder(root: THREE.Object3D): THREE.Mesh[] {
@@ -121,8 +128,8 @@ function meshesUnder(root: THREE.Object3D): THREE.Mesh[] {
 describe('buildWorld', () => {
   it('creates the state and a view for every block and pedestal', async () => {
     const { scene, world } = await setup();
-    expect(world.blocks.map((block) => block.id)).toEqual(SLICE_LAYOUT.blocks.map((block) => block.id));
-    expect(world.pedestals.map((pedestal) => pedestal.id)).toEqual(SLICE_LAYOUT.pedestals.map((p) => p.id));
+    expect(world.blocks.map((block) => block.id)).toEqual(BLOCKS.map((block) => block.id));
+    expect(world.pedestals.map((pedestal) => pedestal.id)).toEqual(PEDESTALS.map((p) => p.id));
     expect(world.blockViews.size).toBe(8);
     expect(world.pedestalViews.size).toBe(3);
     for (const view of world.blockViews.values()) expect(view.root.parent).toBe(scene);
@@ -173,7 +180,7 @@ describe('buildWorld', () => {
 
   it('puts the bell on the ground and blocks reach through its frame', async () => {
     const { scene, physics, world } = await setup();
-    const layout = SLICE_LAYOUT.bell;
+    const layout = BELL;
     const root = world.bell.view.root;
     expect(root.parent).toBe(scene);
     expect(root.position.y).toBe(0); // flat test ground
@@ -185,6 +192,34 @@ describe('buildWorld', () => {
     const to = { x: layout.x, y: 0.875, z: layout.z + 1 };
     expect(physics.canReach(from, to)).toBe(false);
     expect(physics.canReach(from, to, ['bell'])).toBe(true);
+  });
+
+  it('puts Annette in the scene with a collider Chuck cannot walk through', async () => {
+    const { scene, physics, world } = await setup();
+    expect(world.annette.view.root.parent).toBe(scene);
+    const centre = { x: world.annette.position.x, y: world.annette.position.y + 0.75, z: world.annette.position.z };
+    expect(physics.isBoxClear(centre, { x: 0.2, y: 0.2, z: 0.2 })).toBe(false);
+  });
+
+  it('places every terrain tile, so a neighbouring tile is still ground', async () => {
+    const { scene, physics } = await setup();
+    const roots = scene.children.filter((child) => meshesUnder(child).some((mesh) => mesh.name === 'TerrainQuad'));
+    expect(roots.length).toBe(TERRAIN_TILES.length);
+    // Past the centre tile but inside the east one, then past every tile.
+    expect(physics.groundHeight(30, 0, 6)).not.toBeNull();
+    expect(physics.groundHeight(60, 0, 6)).toBeNull();
+  });
+
+  it('adds one scene object per prop', async () => {
+    const base = await fixtureBase();
+    const before = base.scene.children.length;
+    buildWorld(base);
+    expect(base.scene.children.length - before).toBeGreaterThanOrEqual(PROPS.length);
+  });
+
+  it('the invisible edge walls stop a ray leaving the square', async () => {
+    const { physics } = await setup();
+    expect(physics.canReach({ x: 30, y: 1, z: 0 }, { x: 44, y: 1, z: 0 })).toBe(false);
   });
 
   it('the player settles on the ground', async () => {
@@ -220,7 +255,7 @@ describe('buildWorld', () => {
     expect(quad.castShadow).toBe(false);
     expect(quad.receiveShadow).toBe(true);
 
-    const blockView = world.blockViews.get(SLICE_LAYOUT.blocks[0].id);
+    const blockView = world.blockViews.get(BLOCKS[0].id);
     const cube = blockView?.root.getObjectByName('Cube');
     expect(cube instanceof THREE.Mesh && cube.castShadow).toBe(true);
   });

@@ -8,37 +8,13 @@ import { createFog, createLightingRig, type LightingRig } from '../assets/look/L
 import type { CharacterBody } from '../physics/CharacterBody';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
 import { staticFromSpec } from './colliders';
+import { ANNETTE, BELL, BLOCKS, PEDESTALS, PLAYER_START, PROPS, TERRAIN_TILES, WORLD_HALF_EXTENT } from './layout';
 import { BellView } from './BellView';
 import { BlockView } from './BlockView';
 import { CharacterView } from './CharacterView';
 import { LetterFaces } from './LetterFaces';
 import type { LetterTextureCache } from './LetterTexture';
 import { PedestalView } from './PedestalView';
-
-export const SLICE_LAYOUT = {
-  playerStart: { x: 0, z: 3 },
-  cottage: { x: 6, z: -7, yaw: 0 },
-  trees: [{ x: -7, z: -6 }, { x: 9, z: 1 }, { x: -9, z: 5 }],
-  blocks: [
-    { id: 'block-s', letter: 's', x: -4.2, z: 1.0 },
-    { id: 'block-a', letter: 'a', x: -2.6, z: 2.2 },
-    { id: 'block-t', letter: 't', x: 2.6, z: 2.0 },
-    { id: 'block-p', letter: 'p', x: 4.2, z: 0.8 },
-    { id: 'block-i', letter: 'i', x: -5.0, z: -1.2 },
-    { id: 'block-n', letter: 'n', x: 5.0, z: -1.4 },
-    { id: 'block-m', letter: 'm', x: -3.4, z: 4.4 },
-    { id: 'block-o', letter: 'o', x: 3.4, z: 4.6 },
-  ],
-  // Ordered left to right on screen: the camera's home yaw looks along -Z, so
-  // increasing x is screen-right.
-  pedestals: [
-    { id: 'stump-1', x: -1.6, z: -3 },
-    { id: 'stump-2', x: 0, z: -3 },
-    { id: 'stump-3', x: 1.6, z: -3 },
-  ],
-  // To the right of the row, so Chuck walks up to it rather than through it.
-  bell: { x: 3.6, z: -3.2 },
-} as const;
 
 /** Stump size, measured on the models: post + cap. */
 export const PEDESTAL = { radius: 0.69, height: 0.61 } as const;
@@ -49,6 +25,14 @@ const BLOCK_HALF = 0.4;
 /** A resting block's collider is not at its bottom centre, so callers need this. */
 export function blockColliderCentre(position: Vec3): Vec3 {
   return { x: position.x, y: position.y + BLOCK_HALF, z: position.z };
+}
+
+/** XZ half extent of a model's collider footprint, the radius footprintY samples at. */
+function footprintRadius(model: ModelId): number {
+  const spec = MODELS[model].collider;
+  if (spec.kind === 'box') return Math.max(spec.halfExtents[0], spec.halfExtents[2]);
+  if (spec.kind === 'cylinder') return spec.radius;
+  return 0;
 }
 
 export interface BuildWorldDeps {
@@ -67,6 +51,7 @@ export interface SliceWorld {
   blockViews: Map<string, BlockView>;
   pedestalViews: Map<string, PedestalView>;
   bell: { id: string; position: Vec3; view: BellView };
+  annette: { id: string; position: Vec3; view: CharacterView };
   /** Every view, for the per-frame update(dt). */
   update(frameDt: number): void;
 }
@@ -81,6 +66,20 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
 
   /** Ground under a model. Only valid after the terrain is registered. */
   const groundY = (x: number, z: number): number => physics.groundHeight(x, z, 6) ?? 0;
+
+  /**
+   * Lowest ground under a model's footprint. A wide building on a slope would
+   * otherwise float above the low side of its own base.
+   */
+  function footprintY(x: number, z: number, radius: number): number {
+    return Math.min(
+      groundY(x, z),
+      groundY(x + radius, z),
+      groundY(x - radius, z),
+      groundY(x, z + radius),
+      groundY(x, z - radius),
+    );
+  }
 
   /** Painted models, so the manifest's shadow flags can be applied in one pass. */
   const shadowed: Array<{ root: THREE.Object3D; model: ModelId }> = [];
@@ -99,25 +98,41 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     if (options) physics.addStatic(options);
   }
 
-  // Terrain first: everything else is placed on it.
-  const terrain = build('terrain', { outline: false });
-  scene.add(terrain);
-  register('terrain', 'terrain', terrain, Layer.World);
+  // Terrain first: every ground height depends on it.
+  for (const tile of TERRAIN_TILES) {
+    const object = build('terrain', { outline: false });
+    object.position.set(tile.x, 0, tile.z);
+    // Mirrored so neighbouring tiles' hills meet at the seam.
+    object.scale.set(tile.mirrorX ? -1 : 1, 1, tile.mirrorZ ? -1 : 1);
+    scene.add(object);
+    register(tile.id, 'terrain', object, Layer.World);
+  }
+
+  /** Invisible wall closing the square at WORLD_HALF_EXTENT: 1 m thick, 10 m tall. */
+  function addEdge(id: string, position: Vec3, halfExtents: [number, number, number]): void {
+    physics.addStatic({ id, shape: { kind: 'box', halfExtents }, position, layer: Layer.World, blocksCamera: false });
+  }
+
+  // Half the wall thickness past the limit, and long enough that the corners meet.
+  const edge = WORLD_HALF_EXTENT + 0.5;
+  addEdge('edge-n', { x: 0, y: 4, z: -edge }, [edge, 5, 0.5]);
+  addEdge('edge-s', { x: 0, y: 4, z: edge }, [edge, 5, 0.5]);
+  addEdge('edge-e', { x: edge, y: 4, z: 0 }, [0.5, 5, edge]);
+  addEdge('edge-w', { x: -edge, y: 4, z: 0 }, [0.5, 5, edge]);
 
   function placeStatic(model: ModelId, x: number, z: number, entityId: string, yaw = 0): void {
     const object = build(model);
-    object.position.set(x, groundY(x, z), z);
+    object.position.set(x, footprintY(x, z, footprintRadius(model)), z);
     object.rotation.y = yaw;
     scene.add(object);
     register(entityId, model, object, Layer.World);
   }
 
-  placeStatic('cottage', SLICE_LAYOUT.cottage.x, SLICE_LAYOUT.cottage.z, 'cottage', SLICE_LAYOUT.cottage.yaw);
-  SLICE_LAYOUT.trees.forEach((tree, index) => placeStatic('tree', tree.x, tree.z, `tree-${index}`));
+  PROPS.forEach((prop, index) => placeStatic(prop.model, prop.x, prop.z, `${prop.model}-${index}`, prop.yaw ?? 0));
 
   const pedestals: PedestalState[] = [];
   const pedestalViews = new Map<string, PedestalView>();
-  for (const entry of SLICE_LAYOUT.pedestals) {
+  for (const entry of PEDESTALS) {
     const position = { x: entry.x, y: groundY(entry.x, entry.z), z: entry.z };
     const state: PedestalState = { id: entry.id, position, snapHeight: PEDESTAL.height, blockId: null };
 
@@ -135,7 +150,7 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     });
   }
 
-  const bellLayout = SLICE_LAYOUT.bell;
+  const bellLayout = BELL;
   const bellPosition = { x: bellLayout.x, y: groundY(bellLayout.x, bellLayout.z), z: bellLayout.z };
   const frame = build('bellFrame');
   const bellModel = build('bell');
@@ -146,9 +161,27 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   const bellCollider = staticFromSpec('bell', MODELS.bellFrame.collider, bellView.root, Layer.World, false);
   if (bellCollider) physics.addStatic(bellCollider);
 
+  const annetteLayout = ANNETTE;
+  const annettePosition = { x: annetteLayout.x, y: groundY(annetteLayout.x, annetteLayout.z), z: annetteLayout.z };
+  const annetteView = new CharacterView({ model: build('annette'), clips: library.get('annette').clips });
+  // She never moves, so the two physics states are the same and the blend is a no-op.
+  annetteView.setPose(annettePosition, annettePosition, 1);
+  annetteView.setFacing(annetteLayout.yaw);
+  // Her yaw is world space, so her root must be a direct child of the scene.
+  scene.add(annetteView.root);
+
+  // The model has no collider, so this is what stops Chuck walking through her.
+  physics.addStatic({
+    id: 'annette',
+    shape: { kind: 'cylinder', radius: 0.35, height: 1.5 },
+    position: { x: annettePosition.x, y: annettePosition.y + 0.75, z: annettePosition.z },
+    layer: Layer.World,
+    blocksCamera: false,
+  });
+
   const blocks: BlockState[] = [];
   const blockViews = new Map<string, BlockView>();
-  for (const entry of SLICE_LAYOUT.blocks) {
+  for (const entry of BLOCKS) {
     const position = { x: entry.x, y: groundY(entry.x, entry.z), z: entry.z };
     const state: BlockState = {
       id: entry.id,
@@ -175,7 +208,7 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     });
   }
 
-  const start = SLICE_LAYOUT.playerStart;
+  const start = PLAYER_START;
   const startPosition = { x: start.x, y: groundY(start.x, start.z) + 0.1, z: start.z };
   const body = physics.createCharacter(startPosition);
   const view = new CharacterView({
@@ -205,7 +238,18 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     for (const pedestalView of pedestalViews.values()) pedestalView.update(frameDt);
     bellView.update(frameDt);
     player.view.update(frameDt);
+    annetteView.update(frameDt);
   }
 
-  return { lighting, player, blocks, pedestals, blockViews, pedestalViews, bell: { id: 'bell', position: bellPosition, view: bellView }, update };
+  return {
+    lighting,
+    player,
+    blocks,
+    pedestals,
+    blockViews,
+    pedestalViews,
+    bell: { id: 'bell', position: bellPosition, view: bellView },
+    annette: { id: 'annette', position: annettePosition, view: annetteView },
+    update,
+  };
 }
