@@ -16,6 +16,23 @@ assigns you one task at a time through a brief. Do that task and nothing else.
 - If the brief is impossible or contradicts the code, STOP and say so in your
   report. Do not invent a workaround that changes a contract.
 
+## When the owner is talking to you directly (no brief file)
+The owner's message is the brief. The hard rules above still apply, with
+these differences:
+- You MAY edit the files the owner names, including `src/world/layout.ts`
+  (where everything stands), `src/assets/manifest.ts` (models and sounds)
+  and `src/ui/styles.css`. Still never touch `opencode.json`, `AGENTS.md`,
+  `package.json` or the tool configs unless told to in so many words.
+- If the owner did not name a file, say which file you intend to change and
+  why BEFORE editing. Change the fewest files that do the job.
+- The camera, the painted look and the lighting are approved. Do not change
+  `src/camera/` or `src/assets/look/` unless the owner asks for exactly that.
+- Never commit. End by listing the files you changed and the commands the
+  owner can run to see it (`npm run dev`) and to check it
+  (`npm run typecheck`, `timeout 120 npx vitest run`).
+- If a request needs a new model, sound or texture that is not in
+  `public/assets/`, stop and say what is missing. Do not invent a stand-in.
+
 ## Keep your context small (a session that fills up is lost)
 - Never print a minified or generated file. `node_modules/**/*.mjs`, `*.cjs`,
   `*.wasm*` and `package-lock.json` are off limits for cat/grep; read the
