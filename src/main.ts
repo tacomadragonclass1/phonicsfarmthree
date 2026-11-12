@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { BlockState, FocusTarget, Vec3 } from './core/contracts';
+import type { Activatable, BlockState, FocusTarget, Vec3 } from './core/contracts';
 import { FixedStepLoop } from './core/FixedStepLoop';
 import { AssetLibrary, AssetLoadError } from './assets/AssetLibrary';
 import { FONT, MODELS, SOUNDS, type ModelId } from './assets/manifest';
@@ -10,6 +10,7 @@ import { PhonemeSequencer } from './audio/PhonemeSequencer';
 import { FollowCameraRig, screenToWorld } from './camera/FollowCameraRig';
 import { applyPose, createGameCamera } from './camera/applyRig';
 import { CarryRules } from './game/CarryRules';
+import { WordRules } from './game/WordRules';
 import { ButtonSource } from './input/ButtonSource';
 import { GamepadSource } from './input/GamepadSource';
 import { InputManager } from './input/InputManager';
@@ -17,11 +18,14 @@ import { KeyboardSource } from './input/KeyboardSource';
 import { PointerSource } from './input/PointerSource';
 import { PhysicsWorld } from './physics/PhysicsWorld';
 import { Hud, type ElLike } from './ui/Hud';
-import type { BlockView } from './world/BlockView';
-import type { PedestalView } from './world/PedestalView';
 import { buildWorld, blockColliderCentre } from './world/buildWorld';
 import { LetterTextureCache, loadLetterFont, type CanvasLike } from './world/LetterTexture';
 import { DebugSource, installDebugHook, type DebugHook } from './debug';
+
+/** What focus needs from a view: BlockView, PedestalView and BellView all have it. */
+interface FocusedView {
+  setFocused(on: boolean): void;
+}
 
 /** The id a focus target is known by, so the console can name it. */
 const targetId = (target: FocusTarget): string =>
@@ -81,8 +85,25 @@ async function boot(): Promise<void> {
 
     const world = buildWorld({ scene, library, physics, letters });
     const player = world.player;
-    const rules = new CarryRules({ world: physics, blocks: world.blocks, pedestals: world.pedestals });
     const sequencer = new PhonemeSequencer(audio);
+    const words = new WordRules({ pedestals: world.pedestals, blocks: world.blocks, sound: sequencer });
+
+    const bell: Activatable = {
+      id: 'bell',
+      position: world.bell.position,
+      activate: () => {
+        world.bell.view.ring();
+        audio.chime();
+        words.ring();
+      },
+    };
+
+    const rules = new CarryRules({
+      world: physics,
+      blocks: world.blocks,
+      pedestals: world.pedestals,
+      activatables: [bell],
+    });
 
     // Home yaw PI looks along -Z, so screen-right is +X and words read left to right.
   const rig = new FollowCameraRig({ probe: physics, homeYaw: Math.PI });
@@ -101,16 +122,16 @@ async function boot(): Promise<void> {
     window.addEventListener('blur', () => input.releaseAll());
     document.addEventListener('visibilitychange', () => { if (document.hidden) input.releaseAll(); });
 
-    let focusedView: BlockView | PedestalView | null = null;
+    let focusedView: FocusedView | null = null;
     const ready = (): boolean => rules.focus !== null || rules.carried !== null;
 
     rules.on('focusChanged', (target) => {
       focusedView?.setFocused(false);
       focusedView = null;
       if (target !== null) {
-        const view = target.kind === 'block'
-          ? world.blockViews.get(target.block.id)
-          : target.kind === 'pedestal' ? world.pedestalViews.get(target.pedestal.id) : null;
+        const view: FocusedView | null = target.kind === 'block'
+          ? world.blockViews.get(target.block.id) ?? null
+          : target.kind === 'pedestal' ? world.pedestalViews.get(target.pedestal.id) ?? null : world.bell.view;
         if (view) {
           view.setFocused(true);
           focusedView = view;
@@ -118,6 +139,18 @@ async function boot(): Promise<void> {
       }
       hud.setActionReady(ready());
     });
+
+    words.on('letterSounded', (event) => world.blockViews.get(event.blockId)?.pulse());
+
+    words.on('wordMade', (event) => {
+      event.blockIds.forEach((id, index) => world.blockViews.get(id)?.celebrate(index * 0.12));
+      audio.chime(880);
+      sequencer.playSequence(['annette_good']);
+    });
+
+    // Feedback is never punitive: a non-word and an empty row stay quiet.
+    words.on('notYet', () => undefined);
+    words.on('nothingToSound', () => undefined);
 
     rules.on('pickedUp', (block) => {
       physics.setEnabled(block.id, false);
@@ -207,6 +240,8 @@ async function boot(): Promise<void> {
         facingYaw,
         focus: rules.focus === null ? null : targetId(rules.focus),
         carried: rules.carried === null ? null : rules.carried.id,
+        sounding: words.sounding,
+        stumps: world.pedestals.map((pedestal) => pedestal.blockId),
         blocks: world.blocks.map((block) => ({
           id: block.id, letter: block.letter, position: { ...block.position },
           carried: block.carried, pedestalId: block.pedestalId,

@@ -1,5 +1,6 @@
 import type { Disposable } from '../core/contracts';
 import type { ClipBackend, ClipHandle } from './PhonemeSequencer';
+import { playChime } from './Chime';
 
 const NOOP_HANDLE: ClipHandle = { stop: () => {} };
 
@@ -87,6 +88,13 @@ export class AudioEngine implements ClipBackend, Disposable {
         source.disconnect();
       },
     };
+  }
+
+  /** A synthesised bell: there is no bell recording in the manifest. */
+  chime(frequency?: number): void {
+    if (this.disposed) return;
+    // AudioContext and GainNode satisfy Chime's structural types, so no cast.
+    playChime(this.context, this.master, { frequency });
   }
 
   dispose(): void {

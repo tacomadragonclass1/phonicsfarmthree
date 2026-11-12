@@ -8,6 +8,7 @@ import { createFog, createLightingRig, type LightingRig } from '../assets/look/L
 import type { CharacterBody } from '../physics/CharacterBody';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
 import { staticFromSpec } from './colliders';
+import { BellView } from './BellView';
 import { BlockView } from './BlockView';
 import { CharacterView } from './CharacterView';
 import { LetterFaces } from './LetterFaces';
@@ -35,6 +36,8 @@ export const SLICE_LAYOUT = {
     { id: 'stump-2', x: 0, z: -3 },
     { id: 'stump-3', x: 1.6, z: -3 },
   ],
+  // To the right of the row, so Chuck walks up to it rather than through it.
+  bell: { x: 3.6, z: -3.2 },
 } as const;
 
 /** Stump size, measured on the models: post + cap. */
@@ -63,6 +66,7 @@ export interface SliceWorld {
   pedestals: PedestalState[];
   blockViews: Map<string, BlockView>;
   pedestalViews: Map<string, PedestalView>;
+  bell: { id: string; position: Vec3; view: BellView };
   /** Every view, for the per-frame update(dt). */
   update(frameDt: number): void;
 }
@@ -131,6 +135,17 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     });
   }
 
+  const bellLayout = SLICE_LAYOUT.bell;
+  const bellPosition = { x: bellLayout.x, y: groundY(bellLayout.x, bellLayout.z), z: bellLayout.z };
+  const frame = build('bellFrame');
+  const bellModel = build('bell');
+  const bellView = new BellView({ position: bellPosition, frame, bell: bellModel });
+  scene.add(bellView.root);
+
+  // Only the frame is physical: the bell hangs from it and swings freely.
+  const bellCollider = staticFromSpec('bell', MODELS.bellFrame.collider, bellView.root, Layer.World, false);
+  if (bellCollider) physics.addStatic(bellCollider);
+
   const blocks: BlockState[] = [];
   const blockViews = new Map<string, BlockView>();
   for (const entry of SLICE_LAYOUT.blocks) {
@@ -188,8 +203,9 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   function update(frameDt: number): void {
     for (const blockView of blockViews.values()) blockView.update(frameDt);
     for (const pedestalView of pedestalViews.values()) pedestalView.update(frameDt);
+    bellView.update(frameDt);
     player.view.update(frameDt);
   }
 
-  return { lighting, player, blocks, pedestals, blockViews, pedestalViews, update };
+  return { lighting, player, blocks, pedestals, blockViews, pedestalViews, bell: { id: 'bell', position: bellPosition, view: bellView }, update };
 }

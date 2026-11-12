@@ -6,7 +6,7 @@ import { LetterTextureCache, type CanvasLike, type Ctx2DLike } from '../src/worl
 import { blockColliderCentre, buildWorld, PEDESTAL, SLICE_LAYOUT, type SliceWorld } from '../src/world/buildWorld';
 
 const DT = 1 / 60;
-const MODEL_IDS = ['terrain', 'cottage', 'tree', 'pedestalPost', 'pedestalCap', 'block', 'chuck'] as const;
+const MODEL_IDS = ['terrain', 'cottage', 'tree', 'pedestalPost', 'pedestalCap', 'block', 'chuck', 'bell', 'bellFrame'] as const;
 
 class FakeCtx implements Ctx2DLike {
   font = '';
@@ -169,6 +169,22 @@ describe('buildWorld', () => {
       expect(physics.isBoxClear(centre, probe)).toBe(false);
       expect(physics.isBoxClear(centre, probe, [pedestal.id])).toBe(true);
     }
+  });
+
+  it('puts the bell on the ground and blocks reach through its frame', async () => {
+    const { scene, physics, world } = await setup();
+    const layout = SLICE_LAYOUT.bell;
+    const root = world.bell.view.root;
+    expect(root.parent).toBe(scene);
+    expect(root.position.y).toBe(0); // flat test ground
+    expect(root.position.x).toBeCloseTo(layout.x, 10);
+    expect(root.position.z).toBeCloseTo(layout.z, 10);
+
+    // Straight through the frame slab at its collider centre height.
+    const from = { x: layout.x, y: 0.875, z: layout.z - 1 };
+    const to = { x: layout.x, y: 0.875, z: layout.z + 1 };
+    expect(physics.canReach(from, to)).toBe(false);
+    expect(physics.canReach(from, to, ['bell'])).toBe(true);
   });
 
   it('the player settles on the ground', async () => {

@@ -56,6 +56,10 @@ export interface DebugHook {
     facingYaw: number;
     focus: string | null;
     carried: string | null;
+    /** True while the bell's letters are being sounded. */
+    sounding: boolean;
+    /** Block id on each stump, left to right, or null for an empty one. */
+    stumps: (string | null)[];
     blocks: {
       id: string;
       letter: string;
