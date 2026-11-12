@@ -43,81 +43,152 @@ export interface PropPlacement {
 
 const DEG = Math.PI / 180;
 
+/**
+ * Two places. PHONEME VILLAGE is the southern part of the board (+Z), inside
+ * a picket fence; the game starts there. CVC LAND is north of the fence and
+ * is reached through the gate once every village letter has been found.
+ */
+export const VILLAGE_FENCE = {
+  /** Corners of the fenced rectangle. */
+  west: -21,
+  east: 21,
+  north: 4,
+  south: 36,
+  /** The gate is in the north side, centred here. */
+  gate: { x: 0, z: 4, width: 3 },
+} as const;
+
 /** Static scenery. Ids are generated as `<model>-<index in this list>`. */
 export const PROPS: readonly PropPlacement[] = [
-  // The lane of shops behind the word row.
-  { model: 'cottage', x: 6, z: -7 },
-  { model: 'bakery', x: -9, z: -11, yaw: 14 * DEG },
-  { model: 'bookshop', x: -2.5, z: -13 },
-  { model: 'clockHouse', x: 13, z: -12, yaw: -12 * DEG },
-  { model: 'flowerShop', x: 19, z: -6, yaw: -55 * DEG },
-  { model: 'workshop', x: -17, z: -5, yaw: 60 * DEG },
-  { model: 'windmill', x: -20, z: -22, yaw: 25 * DEG },
-  { model: 'woodshed', x: 17, z: 6, yaw: -90 * DEG },
-  // The green.
-  { model: 'well', x: -10, z: 3 },
-  { model: 'bench', x: 9, z: 5.5, yaw: 180 * DEG },
-  { model: 'bench', x: -12.5, z: 6, yaw: 150 * DEG },
-  { model: 'fingerpost', x: -6.5, z: 7 },
-  { model: 'planter', x: 4.1, z: -4.4 },
-  { model: 'planter', x: 8.0, z: -4.4 },
-  { model: 'wallRun', x: 12, z: -2.5, yaw: -20 * DEG },
-  { model: 'wallRun', x: -13.5, z: -1, yaw: 75 * DEG },
-  // Trees.
-  { model: 'tree', x: -7, z: -6 },
-  { model: 'tree', x: 9, z: 1 },
-  { model: 'tree', x: -9, z: 9 },
-  { model: 'tree', x: 22, z: 3 },
-  { model: 'tree', x: -24, z: 8 },
-  { model: 'tree', x: 4, z: -20 },
-  { model: 'tree', x: -14, z: 18 },
-  { model: 'tree', x: 15, z: 19 },
-  { model: 'treeB', x: -4.5, z: -8.5 },
-  { model: 'treeB', x: 10.5, z: -8 },
-  { model: 'treeB', x: 14, z: 11 },
-  { model: 'treeB', x: -19, z: 2 },
-  { model: 'treeB', x: 2, z: 14 },
-  { model: 'treeB', x: 26, z: -14 },
-  { model: 'treeB', x: -27, z: -10 },
-  { model: 'treeB', x: -6, z: 24 },
-  // Small things.
-  { model: 'bush', x: 2.9, z: -7.8 },
-  { model: 'bush', x: 9.2, z: -6.2 },
-  { model: 'bush', x: -11.6, z: -8.6 },
-  { model: 'bush', x: -7.6, z: 5.2 },
-  { model: 'bush', x: 12.2, z: 8.6 },
-  { model: 'bush', x: -16, z: 11 },
-  { model: 'mushrooms', x: -8.2, z: 8.4 },
-  { model: 'mushrooms', x: 9.8, z: 1.9 },
-  { model: 'mushrooms', x: 5, z: 12 },
-  { model: 'blossom', x: -5.6, z: 4.6 },
-  { model: 'blossom', x: 6.4, z: 3.4 },
-  { model: 'blossom', x: -1.2, z: 6.8 },
-  { model: 'blossom', x: 11, z: -1 },
-  { model: 'blossom', x: -11, z: -3.4 },
+  // --- Phoneme Village: the north row faces the square (and the camera).
+  { model: 'bakery', x: -12, z: 8.5 },
+  { model: 'bookshop', x: -5.5, z: 9 },
+  { model: 'clockHouse', x: 6, z: 9 },
+  { model: 'flowerShop', x: 13, z: 9.5, yaw: -10 * DEG },
+  // West side, doors facing east.
+  { model: 'cottage', x: -16.5, z: 17, yaw: 90 * DEG },
+  { model: 'workshop', x: -17, z: 26.5, yaw: 90 * DEG },
+  // East side, doors facing west.
+  { model: 'windmill', x: 16.5, z: 18, yaw: -90 * DEG },
+  { model: 'woodshed', x: 17, z: 28, yaw: -90 * DEG },
+  // The square.
+  { model: 'well', x: -3.5, z: 18 },
+  { model: 'bench', x: -5, z: 22.5 },
+  { model: 'bench', x: 6, z: 15 },
+  { model: 'fingerpost', x: 2.6, z: 6.4 },
+  { model: 'planter', x: -13.4, z: 11 },
+  { model: 'planter', x: -10.6, z: 11 },
+  { model: 'planter', x: 11.4, z: 12.3 },
+  { model: 'planter', x: 14.4, z: 12 },
+  { model: 'planter', x: -13.6, z: 15.6 },
+  { model: 'planter', x: -13.6, z: 18.6 },
+  { model: 'wallRun', x: 9, z: 31 },
+  { model: 'wallRun', x: -8, z: 33.5 },
+  { model: 'tree', x: -9, z: 13.5 },
+  { model: 'tree', x: 11, z: 26 },
+  { model: 'tree', x: -10, z: 22 },
+  { model: 'tree', x: 3, z: 34 },
+  { model: 'tree', x: -14, z: 33 },
+  { model: 'tree', x: 15, z: 34 },
+  { model: 'tree', x: 19, z: 12.5 },
+  { model: 'tree', x: -19, z: 10.5 },
+  { model: 'treeB', x: 9.8, z: 13.2 },
+  { model: 'treeB', x: -12, z: 30 },
+  { model: 'treeB', x: 13, z: 23 },
+  { model: 'treeB', x: -19, z: 21.5 },
+  { model: 'treeB', x: 19.5, z: 23 },
+  { model: 'bush', x: -8.6, z: 11.2 },
+  { model: 'bush', x: 3.2, z: 11 },
+  { model: 'bush', x: -14, z: 21.6 },
+  { model: 'bush', x: 14.6, z: 14.6 },
+  { model: 'bush', x: -6, z: 29 },
+  { model: 'bush', x: 5.2, z: 29.6 },
+  // The flower patch.
+  { model: 'blossom', x: 7.2, z: 22.6 },
+  { model: 'blossom', x: 8.7, z: 22.4 },
+  { model: 'blossom', x: 9.0, z: 23.6 },
+  { model: 'blossom', x: 7.3, z: 23.9 },
+  { model: 'blossom', x: 8.1, z: 24.6 },
+  // The mushroom ring.
+  { model: 'mushrooms', x: -9.9, z: 29.5 },
+  { model: 'mushrooms', x: -8.2, z: 29.5 },
+  { model: 'mushrooms', x: -9, z: 31 },
+  // --- CVC Land, north of the fence.
+  { model: 'tree', x: -9, z: -10 },
+  { model: 'tree', x: 9.5, z: -11 },
+  { model: 'tree', x: -14, z: -2 },
+  { model: 'tree', x: 14, z: -3 },
+  { model: 'tree', x: 0, z: -17 },
+  { model: 'tree', x: -21, z: -13 },
+  { model: 'tree', x: 21, z: -15 },
+  { model: 'treeB', x: -6, z: -19 },
+  { model: 'treeB', x: 8, z: -21 },
+  { model: 'treeB', x: -17, z: -8 },
+  { model: 'treeB', x: 17, z: -9 },
+  { model: 'bush', x: -8, z: -5 },
+  { model: 'bush', x: 8.4, z: -5.4 },
+  { model: 'bush', x: -3, z: -12 },
+  { model: 'blossom', x: -6.5, z: -8.2 },
+  { model: 'blossom', x: 6.8, z: -9 },
+  { model: 'mushrooms', x: 10.5, z: -1 },
 ];
 
-export const PLAYER_START = { x: 0, z: 3 } as const;
+export const PLAYER_START = { x: 0, z: 32 } as const;
 
-/** Annette waits here, turned toward where Chuck starts. */
-export const ANNETTE = { x: -6.5, z: 0.5, yaw: 69 * DEG } as const;
+/** Annette waits here in the village, turned toward where Chuck starts. */
+export const ANNETTE = { x: 2.5, z: 28.5, yaw: -35 * DEG } as const;
 
-export const BELL = { x: 3.6, z: -3.2 } as const;
+/**
+ * When every village letter is found she walks this way, through the gate,
+ * and stops at the last point. Kept clear of every prop: she is not steered.
+ */
+export const ANNETTE_PATH: readonly { x: number; z: number }[] = [
+  { x: 2.5, z: 28.5 },
+  { x: 1.5, z: 14 },
+  { x: 0, z: 7 },
+  { x: 0, z: 1 },
+  { x: -7, z: 0.5 },
+];
+
+/**
+ * The village letters, each somewhere that means something. `place` is for
+ * people reading this file; the game does not use it.
+ */
+export const VILLAGE_BLOCKS: readonly { id: string; letter: string; x: number; z: number; place: string }[] = [
+  { id: 'find-s', letter: 's', x: -12, z: 11.6, place: 'bakery doorstep' },
+  { id: 'find-a', letter: 'a', x: -5.5, z: 12.2, place: 'bookshop doorstep' },
+  { id: 'find-t', letter: 't', x: 6, z: 12, place: 'clock house doorstep' },
+  { id: 'find-p', letter: 'p', x: 12.9, z: 13.1, place: 'between the flower shop planters' },
+  { id: 'find-i', letter: 'i', x: -1.6, z: 18.9, place: 'beside the well' },
+  { id: 'find-n', letter: 'n', x: -5, z: 23.7, place: 'in front of the bench' },
+  { id: 'find-m', letter: 'm', x: 8.1, z: 23.3, place: 'in the flower patch' },
+  { id: 'find-d', letter: 'd', x: -13.3, z: 17.1, place: 'cottage doorstep' },
+  { id: 'find-g', letter: 'g', x: -14, z: 26.5, place: 'workshop door' },
+  { id: 'find-o', letter: 'o', x: -8.8, z: 15.3, place: 'under the big tree' },
+  { id: 'find-c', letter: 'c', x: 13.3, z: 18, place: 'windmill door' },
+  { id: 'find-k', letter: 'k', x: 14.6, z: 28, place: 'by the woodshed' },
+  { id: 'find-e', letter: 'e', x: -9, z: 30.1, place: 'in the mushroom ring' },
+  { id: 'find-u', letter: 'u', x: 2.6, z: 7.9, place: 'at the fingerpost by the gate' },
+  { id: 'find-r', letter: 'r', x: 9, z: 32.3, place: 'by the garden wall' },
+];
+
+export const BELL = { x: 3.6, z: -8.2 } as const;
 
 /** Ordered LEFT TO RIGHT on screen. */
 export const PEDESTALS: readonly { id: string; x: number; z: number }[] = [
-  { id: 'stump-1', x: -1.6, z: -3 },
-  { id: 'stump-2', x: 0, z: -3 },
-  { id: 'stump-3', x: 1.6, z: -3 },
+  { id: 'stump-1', x: -1.6, z: -8 },
+  { id: 'stump-2', x: 0, z: -8 },
+  { id: 'stump-3', x: 1.6, z: -8 },
 ];
 
+/** The word-building blocks, in CVC Land. */
 export const BLOCKS: readonly { id: string; letter: string; x: number; z: number }[] = [
-  { id: 'block-s', letter: 's', x: -4.2, z: 1.0 },
-  { id: 'block-a', letter: 'a', x: -2.6, z: 2.2 },
-  { id: 'block-t', letter: 't', x: 2.6, z: 2.0 },
-  { id: 'block-p', letter: 'p', x: 4.2, z: 0.8 },
-  { id: 'block-i', letter: 'i', x: -5.0, z: -1.2 },
-  { id: 'block-n', letter: 'n', x: 5.0, z: -1.4 },
-  { id: 'block-m', letter: 'm', x: -3.4, z: 4.4 },
-  { id: 'block-o', letter: 'o', x: 3.4, z: 4.6 },
+  { id: 'block-s', letter: 's', x: -4.4, z: -5 },
+  { id: 'block-a', letter: 'a', x: -2.6, z: -3.6 },
+  { id: 'block-t', letter: 't', x: 2.6, z: -3.8 },
+  { id: 'block-p', letter: 'p', x: 4.4, z: -5.2 },
+  { id: 'block-i', letter: 'i', x: -5.4, z: -7.2 },
+  { id: 'block-n', letter: 'n', x: 5.4, z: -7.4 },
+  { id: 'block-m', letter: 'm', x: -3.6, z: -2 },
+  { id: 'block-o', letter: 'o', x: 3.6, z: -2.2 },
 ];

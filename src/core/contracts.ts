@@ -244,4 +244,12 @@ export interface FindEvents {
   found: { letter: string; blockId: string };
   /** The child brought a different block; she names its sound and asks again. */
   tryAgain: { wanted: string; brought: string };
+  /** A find left no letters to ask for. Fires after that find's `found`. */
+  complete: void;
+}
+
+/** A character leading the player along a path. */
+export interface GuideEvents {
+  /** She reached the end of the path. */
+  arrived: void;
 }

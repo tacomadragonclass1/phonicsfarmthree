@@ -75,7 +75,9 @@ export const MODELS = {
     url: 'assets/models/foundation_terrain.glb',
     clips: [],
     collider: { kind: 'trimesh' },
-    blocksCamera: true,
+    // The hills are at most 2.5 m and the camera rides 5 m up, so ground never
+    // needs to push it in; when it did, hilltops zoomed right into Chuck's hat.
+    blocksCamera: false,
     castsShadow: false,
   },
   tree: {
