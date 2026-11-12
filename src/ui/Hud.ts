@@ -159,6 +159,5 @@ export class Hud implements Disposable {
     this.overlay = null;
     this.panel = null;
     this.fill = null;
-    this.overlayRole = '';
   }
 }

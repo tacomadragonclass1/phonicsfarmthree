@@ -1,0 +1,160 @@
+import * as THREE from 'three';
+import type { BlockState, Disposable, Updatable } from '../core/contracts';
+import { Bobber } from './Bobber';
+import { FACE_NAMES, LetterFaces } from './LetterFaces';
+import { damp } from '../core/math';
+
+/** Warm gold a focused block's cream face panels are lerped toward. */
+const GOLD = new THREE.Color(1.0, 0.82, 0.3);
+
+/** Fraction of the way to gold applied the instant focus turns on. */
+const FOCUS_STEP = 0.5;
+
+/** Rate the remaining distance to gold is eased at. */
+const FOCUS_RATE = 8;
+
+/** A panel material that has a `color` to lerp. */
+type PanelMaterial = THREE.MeshStandardMaterial | THREE.MeshToonMaterial | THREE.MeshBasicMaterial;
+
+interface Panel {
+  mesh: THREE.Mesh;
+  material: PanelMaterial;
+}
+
+export interface BlockViewOptions {
+  state: BlockState;
+  model: THREE.Object3D;
+  faces: LetterFaces;
+}
+
+/**
+ * Draws one block. It decides nothing: the game writes state, this draws it.
+ * `root` is the block, origin at its bottom centre, so `root.position` always
+ * equals the state position — the bob runs on an inner group instead.
+ */
+export class BlockView implements Updatable, Disposable {
+  readonly root = new THREE.Group();
+  readonly faces: LetterFaces;
+
+  /** Model + faces live here so the decals bob with the block. */
+  private readonly inner = new THREE.Group();
+  private readonly bobber: Bobber;
+
+  /** The model's cream face panels, empty when the model has none. */
+  private readonly panels: Panel[];
+
+  /** This block's own copy of the panel material, so focusing it cannot recolour the other blocks. */
+  private readonly material: PanelMaterial | null = null;
+
+  /** The colour the panels had before any focus, to return to. */
+  private readonly original = new THREE.Color();
+
+  private readonly state: BlockState;
+  private parent: THREE.Object3D | null = null;
+  private attached = false;
+  private focused = false;
+  private disposed = false;
+
+  constructor(options: BlockViewOptions) {
+    this.state = options.state;
+    this.faces = options.faces;
+
+    this.root.name = 'BlockView';
+    this.root.add(this.inner);
+    this.inner.add(options.model);
+    this.inner.add(this.faces.group);
+
+    this.panels = findPanels(options.model);
+    if (this.panels.length > 0) {
+      // The model's material is shared by every block, so focus needs a copy of its own.
+      this.material = this.panels[0].material.clone();
+      this.original.copy(this.material.color);
+      for (const panel of this.panels) panel.mesh.material = this.material;
+    }
+
+    this.bobber = new Bobber(this.inner, { amplitude: 0.06, frequency: 1.4, spin: 0 });
+    this.bobber.enabled = false;
+
+    this.faces.setLetter(this.state.letter);
+    this.syncFromState();
+  }
+
+  /**
+   * Draws the state. A carried block's state position is stale, so while
+   * attached the anchor owns the transform and nothing is applied here.
+   */
+  syncFromState(): void {
+    if (this.disposed || this.attached || this.state.carried) return;
+    const p = this.state.position;
+    this.root.position.set(p.x, p.y, p.z);
+    // A resting block's world yaw is 0, and root is a direct child of the scene.
+    this.root.rotation.set(0, 0, 0);
+  }
+
+  /** Carried: reparent under the anchor with the transform zeroed. Null: back to the remembered parent. */
+  attachTo(anchor: THREE.Object3D | null): void {
+    if (this.disposed) return;
+    if (!this.parent) this.parent = this.root.parent;
+
+    if (anchor) {
+      this.attached = true;
+      this.root.position.set(0, 0, 0);
+      this.root.rotation.set(0, 0, 0);
+      anchor.add(this.root);
+      return;
+    }
+
+    this.attached = false;
+    if (this.parent) this.parent.add(this.root);
+    this.syncFromState();
+  }
+
+  /** Focus lights up and bobs; unfocusing returns the colour and stops the bob. */
+  setFocused(on: boolean): void {
+    if (this.disposed) return;
+    this.focused = on;
+    this.bobber.enabled = on;
+    if (!this.material) return; // a model with no panels still bobs
+    if (on) {
+      // Part of the way at once so the block reads as lit immediately; update() eases the rest.
+      this.material.color.lerp(GOLD, FOCUS_STEP);
+    } else {
+      this.material.color.copy(this.original);
+    }
+  }
+
+  update(dt: number): void {
+    if (this.disposed || dt <= 0) return;
+    this.bobber.update(dt);
+    if (this.focused && this.material) this.material.color.lerp(GOLD, damp(0, 1, FOCUS_RATE, dt));
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.bobber.dispose();
+    // Only the clone is ours; the model owns its panels' material and LetterFaces owns the decals.
+    if (this.material) this.material.dispose();
+    this.root.removeFromParent();
+  }
+}
+
+/** The named cream panels, searched only in the model so the letter decals are never touched. */
+function findPanels(model: THREE.Object3D): Panel[] {
+  const panels: Panel[] = [];
+  for (const name of FACE_NAMES) {
+    const mesh = model.getObjectByName(name);
+    if (!(mesh instanceof THREE.Mesh)) continue;
+    const material = mesh.material;
+    // An array material has no single colour to lerp.
+    if (Array.isArray(material)) continue;
+    if (
+      material instanceof THREE.MeshStandardMaterial ||
+      material instanceof THREE.MeshToonMaterial ||
+      material instanceof THREE.MeshBasicMaterial
+    ) {
+      panels.push({ mesh, material });
+    }
+  }
+  return panels;
+}
