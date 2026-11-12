@@ -5,9 +5,8 @@ Living ledger. Result vocabulary (see `TESTING.md` §4): *unit-tested*,
 
 ## State — 2026-11-11
 
-- Standalone repository `phonicsfarmthree`, local only: `git init` done,
-  **no remote** (kept local by decision). Each task is committed as it
-  passes review.
+- Standalone repository `phonicsfarmthree`; on GitHub since 2026-11-12
+  (`origin`, branch `main`). Each task is committed as it passes review.
 - Stage A complete. Stage B (vertical slice) in progress.
 - The vertical slice runs: `npm run build && npx vite preview --port 4317`.
 
