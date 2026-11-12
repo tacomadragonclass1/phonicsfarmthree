@@ -56,6 +56,21 @@ export const MODELS = {
     blocksCamera: false,
     castsShadow: true,
   },
+  bell: {
+    url: 'assets/models/cvc/bell.glb',
+    clips: [],
+    collider: { kind: 'none' },
+    blocksCamera: false,
+    castsShadow: true,
+  },
+  bellFrame: {
+    url: 'assets/models/cvc/bell_frame.glb',
+    clips: [],
+    // The two posts and head beam, as one slab.
+    collider: { kind: 'box', halfExtents: [0.71, 0.875, 0.2], offset: [0, 0.875, 0] },
+    blocksCamera: false,
+    castsShadow: true,
+  },
   terrain: {
     url: 'assets/models/foundation_terrain.glb',
     clips: [],

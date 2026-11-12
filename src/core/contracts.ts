@@ -223,3 +223,15 @@ export interface CarryEvents {
   /** A block was taken off a pedestal (fires before `pickedUp`). */
   removed: { block: BlockState; pedestal: PedestalState };
 }
+
+/** What the word-building row reports. Nothing here is a failure state. */
+export interface WordEvents {
+  /** The bell was rung with no blocks on the row. */
+  nothingToSound: void;
+  /** A block on the row is being sounded. `index` counts filled stumps from the left. */
+  letterSounded: { index: number; pedestalId: string; blockId: string; letter: string };
+  /** Every stump is filled and the letters make a word. */
+  wordMade: { word: string; blockIds: readonly string[] };
+  /** The sounds were played but they are not (yet) a word. */
+  notYet: { letters: string };
+}
