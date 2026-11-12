@@ -8,10 +8,12 @@ import { createFog, createLightingRig, type LightingRig } from '../assets/look/L
 import type { CharacterBody } from '../physics/CharacterBody';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
 import { staticFromSpec } from './colliders';
-import { ANNETTE, BELL, BLOCKS, PEDESTALS, PLAYER_START, PROPS, TERRAIN_TILES, WORLD_HALF_EXTENT } from './layout';
+import { ANNETTE, BELL, BLOCKS, PEDESTALS, PLAYER_START, PROPS, TERRAIN_TILES, VILLAGE_BLOCKS, VILLAGE_FENCE, WORLD_HALF_EXTENT } from './layout';
 import { BellView } from './BellView';
 import { BlockView } from './BlockView';
 import { CharacterView } from './CharacterView';
+import { buildFenceMesh, fenceColliders, type FencePoint } from './Fence';
+import { GateView } from './GateView';
 import { LetterFaces } from './LetterFaces';
 import type { LetterTextureCache } from './LetterTexture';
 import { PedestalView } from './PedestalView';
@@ -47,11 +49,16 @@ export interface SliceWorld {
   lighting: LightingRig;
   player: { body: CharacterBody; view: CharacterView };
   blocks: BlockState[];
+  villageBlocks: BlockState[];
   pedestals: PedestalState[];
   blockViews: Map<string, BlockView>;
   pedestalViews: Map<string, PedestalView>;
   bell: { id: string; position: Vec3; view: BellView };
   annette: { id: string; position: Vec3; view: CharacterView };
+  gate: { view: GateView; open(): void };
+  /** A found letter leaves the world: arrays, collider and view. Unknown id: does nothing. */
+  removeBlock(id: string): void;
+  groundY(x: number, z: number): number;
   /** Every view, for the per-frame update(dt). */
   update(frameDt: number): void;
 }
@@ -130,6 +137,57 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
 
   PROPS.forEach((prop, index) => placeStatic(prop.model, prop.x, prop.z, `${prop.model}-${index}`, prop.yaw ?? 0));
 
+  const fence = VILLAGE_FENCE;
+  const gateLayout = fence.gate;
+
+  /** The fence stops at each side of the gate, so the gap stays open. */
+  const runA: FencePoint[] = [
+    { x: gateLayout.x + gateLayout.width / 2, z: fence.north },
+    { x: fence.east, z: fence.north },
+    { x: fence.east, z: fence.south },
+    { x: fence.west, z: fence.south },
+    { x: fence.west, z: fence.north },
+    { x: gateLayout.x - gateLayout.width / 2, z: fence.north },
+  ];
+
+  const fenceMesh = buildFenceMesh(runA, groundY);
+  applyLook(fenceMesh);
+  fenceMesh.castShadow = true;
+  fenceMesh.receiveShadow = true;
+  scene.add(fenceMesh);
+  for (const options of fenceColliders('fence', runA, groundY, Layer.World)) physics.addStatic(options);
+
+  const gatePath: FencePoint[] = [
+    { x: gateLayout.x - gateLayout.width / 2, z: fence.north },
+    { x: gateLayout.x + gateLayout.width / 2, z: fence.north },
+  ];
+  const gateMesh = buildFenceMesh(gatePath, groundY);
+  applyLook(gateMesh);
+  const hinge = {
+    x: gateLayout.x - gateLayout.width / 2,
+    y: groundY(gateLayout.x - gateLayout.width / 2, fence.north),
+    z: fence.north,
+  };
+  const gateView = new GateView({ hinge, mesh: gateMesh });
+  scene.add(gateView.root);
+
+  // The leaf is drawn by the swinging mesh; this is what stops Chuck walking through the gap.
+  physics.addStatic({
+    id: 'gate',
+    shape: { kind: 'box', halfExtents: [gateLayout.width / 2, 0.6, 0.12] },
+    position: { x: gateLayout.x, y: groundY(gateLayout.x, fence.north) + 0.6, z: fence.north },
+    layer: Layer.World,
+    blocksCamera: false,
+  });
+
+  let gateOpened = false;
+  function openGate(): void {
+    if (gateOpened) return;
+    gateOpened = true;
+    physics.remove('gate');
+    gateView.open();
+  }
+
   const pedestals: PedestalState[] = [];
   const pedestalViews = new Map<string, PedestalView>();
   for (const entry of PEDESTALS) {
@@ -180,8 +238,17 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   });
 
   const blocks: BlockState[] = [];
+  const villageBlocks: BlockState[] = [];
   const blockViews = new Map<string, BlockView>();
-  for (const entry of BLOCKS) {
+
+  interface BlockEntry {
+    id: string;
+    letter: string;
+    x: number;
+    z: number;
+  }
+
+  function addBlock(entry: BlockEntry, village: boolean): void {
     const position = { x: entry.x, y: groundY(entry.x, entry.z), z: entry.z };
     const state: BlockState = {
       id: entry.id,
@@ -198,6 +265,7 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     view.syncFromState();
     blockViews.set(entry.id, view);
     blocks.push(state);
+    if (village) villageBlocks.push(state);
 
     physics.addStatic({
       id: entry.id,
@@ -206,6 +274,23 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
       layer: Layer.Block,
       blocksCamera: MODELS.block.blocksCamera,
     });
+  }
+
+  for (const entry of VILLAGE_BLOCKS) addBlock(entry, true);
+  for (const entry of BLOCKS) addBlock(entry, false);
+
+  function removeBlock(id: string): void {
+    const view = blockViews.get(id);
+    const index = blocks.findIndex((block) => block.id === id);
+    if (view === undefined || index < 0) return;
+
+    blocks.splice(index, 1);
+    const villageIndex = villageBlocks.findIndex((block) => block.id === id);
+    if (villageIndex >= 0) villageBlocks.splice(villageIndex, 1);
+    blockViews.delete(id);
+
+    physics.remove(id);
+    view.dispose();
   }
 
   const start = PLAYER_START;
@@ -237,6 +322,7 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     for (const blockView of blockViews.values()) blockView.update(frameDt);
     for (const pedestalView of pedestalViews.values()) pedestalView.update(frameDt);
     bellView.update(frameDt);
+    gateView.update(frameDt);
     player.view.update(frameDt);
     annetteView.update(frameDt);
   }
@@ -245,11 +331,15 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     lighting,
     player,
     blocks,
+    villageBlocks,
     pedestals,
     blockViews,
     pedestalViews,
     bell: { id: 'bell', position: bellPosition, view: bellView },
     annette: { id: 'annette', position: annettePosition, view: annetteView },
+    gate: { view: gateView, open: openGate },
+    removeBlock,
+    groundY,
     update,
   };
 }

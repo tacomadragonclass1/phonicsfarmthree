@@ -11,6 +11,7 @@ import { FollowCameraRig, screenToWorld } from './camera/FollowCameraRig';
 import { applyPose, createGameCamera } from './camera/applyRig';
 import { CarryRules } from './game/CarryRules';
 import { FindRules } from './game/FindRules';
+import { Guide } from './game/Guide';
 import { WordRules } from './game/WordRules';
 import { ButtonSource } from './input/ButtonSource';
 import { GamepadSource } from './input/GamepadSource';
@@ -21,6 +22,7 @@ import { PhysicsWorld } from './physics/PhysicsWorld';
 import { Hud, type ElLike } from './ui/Hud';
 import { buildWorld, blockColliderCentre } from './world/buildWorld';
 import { LetterTextureCache, loadLetterFont, type CanvasLike } from './world/LetterTexture';
+import { ANNETTE_PATH } from './world/layout';
 import { DebugSource, installDebugHook, type DebugHook } from './debug';
 
 /** What focus needs from a view: BlockView, PedestalView and BellView all have it. */
@@ -102,13 +104,45 @@ async function boot(): Promise<void> {
     // `rules` is built after `find`, so the carried block is read lazily: the
     // closure only runs when she is talked to, long after start-up.
     let rules: CarryRules;
-    const find = new FindRules({ blocks: world.blocks, sound: sequencer, carried: () => rules.carried });
+    // The debug hook pretends a block is in Chuck's hands; the real one wins
+    // whenever the hook is not mid-call.
+    let debugCarried: BlockState | null = null;
+    const find = new FindRules({
+      blocks: world.villageBlocks,
+      sound: sequencer,
+      carried: () => debugCarried ?? rules.carried,
+    });
 
     const annette: Activatable = {
       id: 'annette',
       position: world.annette.position,
       activate: () => find.talk(),
     };
+
+    const guide = new Guide({ path: ANNETTE_PATH });
+    // The activatable and the rules hold this same object, so it is mutated in place.
+    const annettePos = world.annette.position;
+    const annettePrev: Vec3 = { ...annettePos };
+    const annetteCurr: Vec3 = { ...annettePos };
+
+    /** She only walks once the last letter is found; until then she stands where buildWorld put her. */
+    function stepAnnette(dt: number, follower: Vec3): void {
+      if (!guide.leading && !guide.arrived) return;
+      guide.step(dt, follower);
+      copyVec(annetteCurr, annettePrev);
+      annettePos.x = guide.position.x;
+      annettePos.z = guide.position.z;
+      annettePos.y = world.groundY(annettePos.x, annettePos.z);
+      copyVec(annettePos, annetteCurr);
+    }
+
+    // Her collider is off while she walks, so nothing pushes the player; it is
+    // put back where she stopped.
+    guide.on('arrived', () => {
+      const y = world.groundY(guide.position.x, guide.position.z);
+      physics.setPosition('annette', { x: guide.position.x, y: y + 0.75, z: guide.position.z });
+      physics.setEnabled('annette', true);
+    });
 
     rules = new CarryRules({
       world: physics,
@@ -118,7 +152,7 @@ async function boot(): Promise<void> {
     });
 
     // Home yaw PI looks along -Z, so screen-right is +X and words read left to right.
-  const rig = new FollowCameraRig({ probe: physics, homeYaw: Math.PI });
+    const rig = new FollowCameraRig({ probe: physics, homeYaw: Math.PI });
     const camera = createGameCamera(canvas.clientWidth / canvas.clientHeight);
 
     const debug = new DebugSource();
@@ -170,7 +204,23 @@ async function boot(): Promise<void> {
     words.on('nothingToSound', () => undefined);
 
     // She speaks her own lines; the chime is the game's celebration on top.
-    find.on('found', () => audio.chime(880));
+    const collect = (blockId: string, letter: string): void => {
+      // The highlight must be dropped before the view is disposed.
+      if (focusedView === world.blockViews.get(blockId)) focusedView = null;
+      if (rules.carried?.id === blockId) rules.releaseCarried();
+      world.removeBlock(blockId);
+      hud.addMedal(letter);
+      audio.chime(880);
+      hud.setActionReady(ready());
+      find.next();
+    };
+    find.on('found', (event) => collect(event.blockId, event.letter));
+
+    find.on('complete', () => {
+      world.gate.open();
+      physics.setEnabled('annette', false);
+      guide.lead();
+    });
 
     rules.on('pickedUp', (block) => {
       physics.setEnabled(block.id, false);
@@ -215,6 +265,7 @@ async function boot(): Promise<void> {
 
       if (Math.hypot(dir.x, dir.z) > 0.1) facingYaw = Math.atan2(dir.x, dir.z);
       rules.step(curr, { x: Math.sin(facingYaw), z: Math.cos(facingYaw) }, s.action);
+      stepAnnette(dt, curr);
       yawInput = s.cameraYaw;
     }
 
@@ -223,6 +274,11 @@ async function boot(): Promise<void> {
       player.view.setFacing(facingYaw);
       const speed = Math.hypot(player.body.velocity.x, player.body.velocity.z);
       player.view.setMoving(speed > 0.3);
+
+      world.annette.view.setPose(annettePrev, annetteCurr, alpha);
+      // Only the walk takes over the facing buildWorld gave her when she was standing still.
+      if (guide.leading || guide.arrived) world.annette.view.setFacing(guide.yaw);
+      world.annette.view.setMoving(guide.moving);
 
       world.update(frameDt);
 
@@ -254,6 +310,18 @@ async function boot(): Promise<void> {
         copyVec(player.body.position, prev);
         copyVec(player.body.position, curr);
       },
+      /** Delivers the wanted letter through the normal path, without a player. */
+      collectWanted: () => {
+        const wanted = find.wanted;
+        if (wanted === null) return false;
+        const block = world.villageBlocks.find((b) => b.letter === wanted);
+        if (block === undefined) return false;
+        block.carried = true;
+        debugCarried = block;
+        find.talk();
+        debugCarried = null;
+        return true;
+      },
       state: () => ({
         player: { ...player.body.position },
         grounded: player.body.grounded,
@@ -262,6 +330,11 @@ async function boot(): Promise<void> {
         carried: rules.carried === null ? null : rules.carried.id,
         sounding: words.sounding,
         wanted: find.wanted,
+        medals: hud.medalCount,
+        villageLeft: world.villageBlocks.length,
+        gateOpen: world.gate.view.isOpen,
+        findDone: find.done,
+        annette: { x: annettePos.x, z: annettePos.z, leading: guide.leading, arrived: guide.arrived },
         stumps: world.pedestals.map((pedestal) => pedestal.blockId),
         blocks: world.blocks.map((block) => ({
           id: block.id, letter: block.letter, position: { ...block.position },
@@ -287,6 +360,8 @@ async function boot(): Promise<void> {
     hud.hideOverlay();
     hud.setActionVisible(true);
     loop.start();
+    // Her first request is unprompted: the child has to be shown what to do.
+    find.begin();
   } catch (error) {
     hud.showError(errorMessage(error));
     console.error(error);

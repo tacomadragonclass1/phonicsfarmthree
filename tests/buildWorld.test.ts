@@ -4,7 +4,7 @@ import { AssetLibrary, type GltfLoaderLike } from '../src/assets/AssetLibrary';
 import { MODELS, type ModelId } from '../src/assets/manifest';
 import { PhysicsWorld } from '../src/physics/PhysicsWorld';
 import { LetterTextureCache, type CanvasLike, type Ctx2DLike } from '../src/world/LetterTexture';
-import { BELL, BLOCKS, PEDESTALS, PROPS, TERRAIN_TILES } from '../src/world/layout';
+import { BELL, BLOCKS, PEDESTALS, PROPS, TERRAIN_TILES, VILLAGE_BLOCKS, VILLAGE_FENCE } from '../src/world/layout';
 import { blockColliderCentre, buildWorld, PEDESTAL, type SliceWorld } from '../src/world/buildWorld';
 
 const DT = 1 / 60;
@@ -128,9 +128,10 @@ function meshesUnder(root: THREE.Object3D): THREE.Mesh[] {
 describe('buildWorld', () => {
   it('creates the state and a view for every block and pedestal', async () => {
     const { scene, world } = await setup();
-    expect(world.blocks.map((block) => block.id)).toEqual(BLOCKS.map((block) => block.id));
+    expect(world.blocks.length).toBe(VILLAGE_BLOCKS.length + BLOCKS.length);
+    expect(world.villageBlocks.map((block) => block.id)).toEqual(VILLAGE_BLOCKS.map((block) => block.id));
     expect(world.pedestals.map((pedestal) => pedestal.id)).toEqual(PEDESTALS.map((p) => p.id));
-    expect(world.blockViews.size).toBe(8);
+    expect(world.blockViews.size).toBe(world.blocks.length);
     expect(world.pedestalViews.size).toBe(3);
     for (const view of world.blockViews.values()) expect(view.root.parent).toBe(scene);
     for (const view of world.pedestalViews.values()) expect(view.root.parent).toBe(scene);
@@ -152,7 +153,9 @@ describe('buildWorld', () => {
 
   it('registers each block collider under the block id', async () => {
     const { physics, world } = await setup();
-    for (const block of world.blocks) {
+    // Village blocks stand on doorsteps, so a 1 m probe would hit the building;
+    // the CVC row stands in the open.
+    for (const block of world.blocks.filter((block) => !world.villageBlocks.includes(block))) {
       const centre = blockColliderCentre(block.position);
       // 1 m each side: past the block's own 0.4 half extent, but short enough to
       // stay out of the pedestal cylinders, which are the only other things in range.
@@ -201,13 +204,48 @@ describe('buildWorld', () => {
     expect(physics.isBoxClear(centre, { x: 0.2, y: 0.2, z: 0.2 })).toBe(false);
   });
 
+  it('the fence blocks a ray across the east side', async () => {
+    const { physics } = await setup();
+    // 0.5 is inside the collider band, which runs from the ground to 1.2 m up.
+    const from = { x: VILLAGE_FENCE.east - 1, y: 0.5, z: 20 };
+    const to = { x: VILLAGE_FENCE.east + 1, y: 0.5, z: 20 };
+    expect(physics.canReach(from, to)).toBe(false);
+  });
+
+  it('the closed gate blocks a ray through the gap, and opening it clears it', async () => {
+    const { physics, world } = await setup();
+    const gate = VILLAGE_FENCE.gate;
+    const from = { x: gate.x, y: 0.6, z: gate.z - 1 };
+    const to = { x: gate.x, y: 0.6, z: gate.z + 1 };
+    expect(physics.canReach(from, to)).toBe(false);
+    world.gate.open();
+    world.gate.open(); // opening twice must not throw
+    expect(physics.canReach(from, to)).toBe(true);
+  });
+
+  it('removeBlock takes a found letter out of the world', async () => {
+    const { physics, world } = await setup();
+    const block = world.villageBlocks.find((b) => b.id === 'find-s');
+    const view = world.blockViews.get('find-s');
+    if (!block || !view) throw new Error('no find-s block');
+    const centre = blockColliderCentre(block.position);
+
+    world.removeBlock('find-s');
+    expect(world.blocks.length).toBe(VILLAGE_BLOCKS.length + BLOCKS.length - 1);
+    expect(world.villageBlocks.length).toBe(VILLAGE_BLOCKS.length - 1);
+    expect(world.blockViews.has('find-s')).toBe(false);
+    expect(view.root.parent).toBeNull();
+    expect(physics.isBoxClear(centre, { x: 0.3, y: 0.3, z: 0.3 })).toBe(true);
+  });
+
   it('places every terrain tile, so a neighbouring tile is still ground', async () => {
-    const { scene, physics } = await setup();
+    const { scene, physics, world } = await setup();
     const roots = scene.children.filter((child) => meshesUnder(child).some((mesh) => mesh.name === 'TerrainQuad'));
     expect(roots.length).toBe(TERRAIN_TILES.length);
     // Past the centre tile but inside the east one, then past every tile.
     expect(physics.groundHeight(30, 0, 6)).not.toBeNull();
     expect(physics.groundHeight(60, 0, 6)).toBeNull();
+    expect(typeof world.groundY(0, 30)).toBe('number');
   });
 
   it('adds one scene object per prop', async () => {

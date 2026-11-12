@@ -50,6 +50,8 @@ export interface DebugHook {
   hold(moveX: number, moveY: number, cameraYaw?: number): void;
   press(): void;
   teleport(x: number, z: number): void;
+  /** Delivers the letter she is waiting for through the normal find path. */
+  collectWanted(): boolean;
   state(): {
     player: Vec3;
     grounded: boolean;
@@ -60,6 +62,13 @@ export interface DebugHook {
     sounding: boolean;
     /** The sound Annette is waiting for, or null before she asks. */
     wanted: string | null;
+    medals: number;
+    /** Village letters still in the world. */
+    villageLeft: number;
+    gateOpen: boolean;
+    /** True once she has asked for everything and been answered. */
+    findDone: boolean;
+    annette: { x: number; z: number; leading: boolean; arrived: boolean };
     /** Block id on each stump, left to right, or null for an empty one. */
     stumps: (string | null)[];
     blocks: {
