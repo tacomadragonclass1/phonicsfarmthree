@@ -90,6 +90,28 @@ Open: on a hilltop with rising ground behind Chuck the camera collision
 pulls right in to its 3.5 m minimum (seen at x -14, z -10). Props were
 placed from measurements, not by eye. Mirrored lanes repeat across tiles.
 
+## Stage E — Phoneme Village and CVC Land (first pass, 2026-11-11)
+
+| ID | Task | Model | State |
+|---|---|---|---|
+| V-01 | Picket fence generated in code (no fence model exists) | Strata, 13 min | accepted — seen in browser |
+| V-02 | Village find rules (`begin`, `next`, `complete`), medals in the HUD | Strata, 6 min | accepted — driven in browser |
+| V-03 | `Guide`: walks a path, waits for the player | Strata, 8 min | accepted — unit-tested, partly seen |
+| V-04 | Fence, gate, village and word block sets, `removeBlock` | Strata, 15 min | accepted — driven in browser |
+| V-05 | Village game wired in `main.ts` | Strata, 5 min | accepted — driven in browser |
+
+Driven in the browser: Annette asks unprompted; one letter fetched and
+delivered by walking (block gone, medal shown); the other fourteen through
+the debug hook; gate opened on the fifteenth; Annette set off.
+
+Fixed in review: `FindRules` cleared the wanted letter after emitting
+`found`, wiping the next request (regression test added); `Guide` waited
+for a player who had run ahead of her (now keeps walking; test added);
+a tree and the start point sat where they hid Chuck from the camera.
+
+Not seen: Annette's whole walk and arrival (the automated browser runs at
+about a twelfth of real time), any sound, frame rate.
+
 ## Written by the architect (not delegated)
 
 Docs, briefs, `AGENTS.md`, `opencode.json`, `package.json`, `tsconfig.json`,

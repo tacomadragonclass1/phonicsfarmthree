@@ -196,4 +196,21 @@ describe('FindRules', () => {
     rules.talk();
     expect(rules.wanted).toBe('t');
   });
+
+  it('keeps the letter chosen by next() when next() is called from the found handler', () => {
+    const sound = { playSequence: () => undefined, stop: () => undefined, busy: false, on: () => () => undefined };
+    const mk = (id: string, letter: string) => ({ id, letter, position: { x: 0, y: 0, z: 0 }, carried: false, pedestalId: null, silentDrops: false });
+    const blocks = [mk('a', 'a'), mk('b', 'b')];
+    let carried: (typeof blocks)[number] | null = null;
+    const find = new FindRules({ blocks, sound, carried: () => carried, random: () => 0 });
+    find.on('found', (e) => {
+      blocks.splice(blocks.findIndex((b) => b.id === e.blockId), 1);
+      carried = null;
+      find.next();
+    });
+    find.begin();
+    carried = blocks.find((b) => b.letter === find.wanted) ?? null;
+    find.talk();
+    expect(find.wanted).not.toBeNull();
+  });
 });

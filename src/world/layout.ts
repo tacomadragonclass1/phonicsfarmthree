@@ -87,7 +87,7 @@ export const PROPS: readonly PropPlacement[] = [
   { model: 'tree', x: -9, z: 13.5 },
   { model: 'tree', x: 11, z: 26 },
   { model: 'tree', x: -10, z: 22 },
-  { model: 'tree', x: 3, z: 34 },
+  { model: 'tree', x: -19, z: 31 },
   { model: 'tree', x: -14, z: 33 },
   { model: 'tree', x: 15, z: 34 },
   { model: 'tree', x: 19, z: 12.5 },
@@ -133,17 +133,17 @@ export const PROPS: readonly PropPlacement[] = [
   { model: 'mushrooms', x: 10.5, z: -1 },
 ];
 
-export const PLAYER_START = { x: 0, z: 32 } as const;
+export const PLAYER_START = { x: 0, z: 29 } as const;
 
 /** Annette waits here in the village, turned toward where Chuck starts. */
-export const ANNETTE = { x: 2.5, z: 28.5, yaw: -35 * DEG } as const;
+export const ANNETTE = { x: 2.5, z: 25.5, yaw: -35 * DEG } as const;
 
 /**
  * When every village letter is found she walks this way, through the gate,
  * and stops at the last point. Kept clear of every prop: she is not steered.
  */
 export const ANNETTE_PATH: readonly { x: number; z: number }[] = [
-  { x: 2.5, z: 28.5 },
+  { x: 2.5, z: 25.5 },
   { x: 1.5, z: 14 },
   { x: 0, z: 7 },
   { x: 0, z: 1 },

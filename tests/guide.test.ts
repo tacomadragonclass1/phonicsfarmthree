@@ -118,4 +118,12 @@ describe('Guide', () => {
     expect(arrived).toBe(1);
     expect(guide.yaw).toBeCloseTo(Math.PI, 6);
   });
+
+  it('does not wait for a follower who has run on ahead', () => {
+    const guide = new Guide({ path: [{ x: 0, z: 0 }, { x: 0, z: 20 }] });
+    guide.lead();
+    for (let i = 0; i < 60; i++) guide.step(1 / 60, { x: 0, z: 15 });
+    expect(guide.moving).toBe(true);
+    expect(guide.position.z).toBeCloseTo(2.6, 2);
+  });
 });

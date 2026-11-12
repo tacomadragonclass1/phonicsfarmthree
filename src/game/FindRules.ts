@@ -107,9 +107,12 @@ export class FindRules implements EventSource<FindEvents> {
 
     if (block.letter === this.currentLetter) {
       // Silent: the game removes the block and calls `next()`, which speaks.
-      this.emitter.emit('found', { letter: this.currentLetter, blockId: block.id });
-      this.previousLetter = this.currentLetter;
+      // Clear first: the game answers `found` by calling `next()`, which sets the
+      // next wanted letter, and clearing afterwards would wipe it out.
+      const letter = this.currentLetter;
+      this.previousLetter = letter;
       this.currentLetter = null;
+      this.emitter.emit('found', { letter, blockId: block.id });
       return;
     }
 
