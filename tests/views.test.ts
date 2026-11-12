@@ -103,7 +103,8 @@ describe('BlockView', () => {
 
   it('focus eases the inner group scale up and back without scaling root', () => {
     const view = new BlockView({ state: blockState({ x: 1.5, y: 0, z: -2 }), model: panelModel(new THREE.MeshStandardMaterial()), faces: fakeFaces() });
-    const inner = view.root.children[0];
+    // root.children[0] is the reaction lift group; the focus scale is on the inner group below it.
+    const inner = view.root.children[0].children[0];
     view.setFocused(true);
     for (let i = 0; i < 10; i += 1) view.update(0.05);
     expect(inner.scale.x).toBeGreaterThan(1.1);

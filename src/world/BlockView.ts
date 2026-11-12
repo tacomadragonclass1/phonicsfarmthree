@@ -17,6 +17,13 @@ const FOCUS_RATE = 8;
 const FOCUS_SCALE = 1.12;
 const FOCUS_SCALE_RATE = 14;
 
+/** `pulse` pop and `celebrate` hops. Both start and end at 0, so they never snap. */
+const PULSE_HEIGHT = 0.18;
+const PULSE_DURATION = 0.35;
+const HOP_HEIGHT = 0.3;
+const HOP_DURATION = 0.3;
+const HOP_COUNT = 3;
+
 /** A panel material that has a `color` to lerp. */
 type PanelMaterial = THREE.MeshStandardMaterial | THREE.MeshToonMaterial | THREE.MeshBasicMaterial;
 
@@ -40,9 +47,19 @@ export class BlockView implements Updatable, Disposable {
   readonly root = new THREE.Group();
   readonly faces: LetterFaces;
 
+  /** Reaction offset lives here so `root.position` stays the game state. */
+  private readonly lift = new THREE.Group();
+
   /** Model + faces live here so the decals bob with the block. */
   private readonly inner = new THREE.Group();
   private readonly bobber: Bobber;
+
+  /** Hop animation on `lift`: `hopEnd` 0 means nothing is playing. */
+  private hopHeight = 0;
+  private hopDuration = 0;
+  private hopEnd = 0;
+  private hopDelay = 0;
+  private hopTime = 0;
 
   /** The model's cream face panels, empty when the model has none. */
   private readonly panels: Panel[];
@@ -65,7 +82,8 @@ export class BlockView implements Updatable, Disposable {
     this.faces = options.faces;
 
     this.root.name = 'BlockView';
-    this.root.add(this.inner);
+    this.root.add(this.lift);
+    this.lift.add(this.inner);
     this.inner.add(options.model);
     this.inner.add(this.faces.group);
 
@@ -128,6 +146,27 @@ export class BlockView implements Updatable, Disposable {
     }
   }
 
+  /** A quick "this one is sounding" pop: the inner group jumps up 0.18 m and falls back over 0.35 s. */
+  pulse(): void {
+    this.startHop(PULSE_HEIGHT, PULSE_DURATION, 1, 0);
+  }
+
+  /** Word made: three hops, 0.3 m high, 0.3 s each, starting after `delay` seconds. */
+  celebrate(delay = 0): void {
+    this.startHop(HOP_HEIGHT, HOP_DURATION, HOP_COUNT, delay);
+  }
+
+  private startHop(height: number, duration: number, count: number, delay: number): void {
+    if (this.disposed) return;
+    const wait = delay > 0 ? delay : 0;
+    this.hopHeight = height;
+    this.hopDuration = duration;
+    this.hopDelay = wait;
+    this.hopTime = 0;
+    this.hopEnd = wait + duration * count;
+    this.lift.position.y = 0;
+  }
+
   update(dt: number): void {
     if (this.disposed || dt <= 0) return;
     this.bobber.update(dt);
@@ -135,6 +174,21 @@ export class BlockView implements Updatable, Disposable {
     this.innerScale = damp(this.innerScale, this.focused ? FOCUS_SCALE : 1, FOCUS_SCALE_RATE, dt);
     this.inner.scale.setScalar(this.innerScale);
     if (this.focused && this.material) this.material.color.lerp(GOLD, damp(0, 1, FOCUS_RATE, dt));
+
+    if (this.hopEnd > 0) {
+      this.hopTime += dt;
+      if (this.hopTime > this.hopEnd) {
+        this.hopEnd = 0;
+        this.lift.position.y = 0;
+      } else {
+        // Hop shape starts and ends at 0, so the block never snaps off the ground.
+        const elapsed = this.hopTime - this.hopDelay;
+        if (elapsed >= 0) {
+          const u = (elapsed % this.hopDuration) / this.hopDuration;
+          this.lift.position.y = this.hopHeight * Math.sin(Math.PI * u);
+        }
+      }
+    }
   }
 
   dispose(): void {
