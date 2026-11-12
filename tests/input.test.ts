@@ -326,6 +326,20 @@ describe('GamepadSource', () => {
     expect(out.action).toBe(true);
   });
 
+  it('a press fires when the browser returns a new pad object on every poll (Chrome)', () => {
+    const pressed = new Set<number>();
+    const source = new GamepadSource(() => [{ ...fakePad('standard', [0, 0, 0, 0], pressed), index: 0, id: 'pad' }]);
+    const out = newState();
+    sample(source, out); // baseline
+    pressed.add(1);
+    sample(source, out);
+    expect(out.action).toBe(true);
+    pressed.add(0);
+    sample(source, out);
+    expect(out.jump).toBe(true);
+    expect(out.action).toBe(false);
+  });
+
   it('prefers the first connected pad with the standard mapping', () => {
     const pressed = new Set<number>();
     const other = fakePad('unknown', [0.9, 0, 0, 0], pressed);

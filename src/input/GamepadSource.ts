@@ -5,6 +5,9 @@ export interface GamepadButtonLike {
 }
 
 export interface GamepadLike {
+  /** Slot number; with `id` it says which physical pad this is. */
+  index?: number;
+  id?: string;
   mapping: string;
   connected: boolean;
   axes: ArrayLike<number>;
@@ -32,8 +35,12 @@ function rescale(value: number, deadzone: number): number {
 export class GamepadSource implements InputSource {
   private readonly getGamepads: GamepadReader;
 
-  /** Pad seen on the previous sample; null means "no baseline yet". */
-  private pad: GamepadLike | null = null;
+  /**
+   * Which pad the previous sample read; null means "no baseline yet". Kept as a key,
+   * not the object: Chrome hands back a fresh snapshot object on every poll, so comparing
+   * objects made every sample look like a newly plugged pad and no press ever fired.
+   */
+  private padKey: string | null = null;
   private actionWasPressed = false;
   private jumpWasPressed = false;
 
@@ -62,15 +69,16 @@ export class GamepadSource implements InputSource {
     if (!pad) {
       // Unplugged: nothing to report, and the baseline is forgotten so a
       // re-plug with the button already held cannot fire an action.
-      this.pad = null;
+      this.padKey = null;
       this.actionWasPressed = false;
       this.jumpWasPressed = false;
       return;
     }
 
     // First sample after a pad appears only establishes the edge baseline.
-    const isNewPad = this.pad !== pad;
-    this.pad = pad;
+    const key = `${pad.index ?? 0}|${pad.id ?? ''}`;
+    const isNewPad = this.padKey !== key;
+    this.padKey = key;
 
     const isPressed = this.pressed(pad, ACTION_BUTTON);
     if (isNewPad) this.actionWasPressed = isPressed;
@@ -103,7 +111,7 @@ export class GamepadSource implements InputSource {
   }
 
   release(): void {
-    this.pad = null;
+    this.padKey = null;
     this.actionWasPressed = false;
     this.jumpWasPressed = false;
   }
