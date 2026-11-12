@@ -24,6 +24,7 @@ import { buildWorld, blockColliderCentre } from './world/buildWorld';
 import { LetterTextureCache, loadLetterFont, type CanvasLike } from './world/LetterTexture';
 import { ANNETTE_PATH } from './world/layout';
 import { DebugSource, installDebugHook, type DebugHook } from './debug';
+import { showPadDebug } from './ui/padDebug';
 
 /** What focus needs from a view: BlockView, PedestalView and BellView all have it. */
 interface FocusedView {
@@ -369,4 +370,5 @@ async function boot(): Promise<void> {
   }
 }
 
+if (new URLSearchParams(location.search).has('pad')) showPadDebug();
 boot();
