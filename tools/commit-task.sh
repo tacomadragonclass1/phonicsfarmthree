@@ -10,5 +10,6 @@ git commit -q -m "$SUBJECT
 Implemented by a local model ($MODEL) from its brief in docs/briefs;
 reviewed and unit-tested by the architect.
 
-Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>"
+Co-Authored-By: Claude Fable 5.2 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01VyhKrTN6iXHheVawNVP4pz"
 git log --oneline -1

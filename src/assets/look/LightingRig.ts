@@ -9,7 +9,7 @@ export interface LightingRig {
 
 const DEG = Math.PI / 180;
 const ELEVATION = 34 * DEG;
-const AZIMUTH = 40 * DEG;
+const AZIMUTH = 220 * DEG;
 
 /** The sun sits inside its own shadow frustum (near 1, far 80). */
 const SUN_DISTANCE = 40;

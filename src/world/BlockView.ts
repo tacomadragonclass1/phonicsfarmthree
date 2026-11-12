@@ -8,10 +8,14 @@ import { damp } from '../core/math';
 const GOLD = new THREE.Color(1.0, 0.82, 0.3);
 
 /** Fraction of the way to gold applied the instant focus turns on. */
-const FOCUS_STEP = 0.5;
+const FOCUS_STEP = 0.75;
 
 /** Rate the remaining distance to gold is eased at. */
 const FOCUS_RATE = 8;
+
+/** Inner group scale while focused, and the rate it is eased at. Colour alone read too faint. */
+const FOCUS_SCALE = 1.12;
+const FOCUS_SCALE_RATE = 14;
 
 /** A panel material that has a `color` to lerp. */
 type PanelMaterial = THREE.MeshStandardMaterial | THREE.MeshToonMaterial | THREE.MeshBasicMaterial;
@@ -53,6 +57,7 @@ export class BlockView implements Updatable, Disposable {
   private parent: THREE.Object3D | null = null;
   private attached = false;
   private focused = false;
+  private innerScale = 1;
   private disposed = false;
 
   constructor(options: BlockViewOptions) {
@@ -126,6 +131,9 @@ export class BlockView implements Updatable, Disposable {
   update(dt: number): void {
     if (this.disposed || dt <= 0) return;
     this.bobber.update(dt);
+    // Only the inner group grows, so root stays at the state position.
+    this.innerScale = damp(this.innerScale, this.focused ? FOCUS_SCALE : 1, FOCUS_SCALE_RATE, dt);
+    this.inner.scale.setScalar(this.innerScale);
     if (this.focused && this.material) this.material.color.lerp(GOLD, damp(0, 1, FOCUS_RATE, dt));
   }
 

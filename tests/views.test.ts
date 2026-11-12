@@ -101,6 +101,19 @@ describe('BlockView', () => {
     expect(view.root.position.toArray()).toEqual([1.5, 0, -2]);
   });
 
+  it('focus eases the inner group scale up and back without scaling root', () => {
+    const view = new BlockView({ state: blockState({ x: 1.5, y: 0, z: -2 }), model: panelModel(new THREE.MeshStandardMaterial()), faces: fakeFaces() });
+    const inner = view.root.children[0];
+    view.setFocused(true);
+    for (let i = 0; i < 10; i += 1) view.update(0.05);
+    expect(inner.scale.x).toBeGreaterThan(1.1);
+    expect(view.root.scale.toArray()).toEqual([1, 1, 1]);
+
+    view.setFocused(false);
+    for (let i = 0; i < 10; i += 1) view.update(0.05);
+    expect(inner.scale.x).toBeLessThan(1.01);
+  });
+
   it('attachTo moves root under the anchor and back to the remembered parent', () => {
     const state = blockState({ x: 1, y: 0.6, z: -2 });
     const scene = new THREE.Group();

@@ -123,7 +123,7 @@ describe('buildWorld', () => {
     const { scene, world } = await setup();
     expect(world.blocks.map((block) => block.id)).toEqual(SLICE_LAYOUT.blocks.map((block) => block.id));
     expect(world.pedestals.map((pedestal) => pedestal.id)).toEqual(SLICE_LAYOUT.pedestals.map((p) => p.id));
-    expect(world.blockViews.size).toBe(3);
+    expect(world.blockViews.size).toBe(8);
     expect(world.pedestalViews.size).toBe(3);
     for (const view of world.blockViews.values()) expect(view.root.parent).toBe(scene);
     for (const view of world.pedestalViews.values()) expect(view.root.parent).toBe(scene);

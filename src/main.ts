@@ -84,7 +84,8 @@ async function boot(): Promise<void> {
     const rules = new CarryRules({ world: physics, blocks: world.blocks, pedestals: world.pedestals });
     const sequencer = new PhonemeSequencer(audio);
 
-    const rig = new FollowCameraRig({ probe: physics });
+    // Home yaw PI looks along -Z, so screen-right is +X and words read left to right.
+  const rig = new FollowCameraRig({ probe: physics, homeYaw: Math.PI });
     const camera = createGameCamera(canvas.clientWidth / canvas.clientHeight);
 
     const debug = new DebugSource();
@@ -145,7 +146,8 @@ async function boot(): Promise<void> {
 
     const prev: Vec3 = { ...player.body.position };
     const curr: Vec3 = { ...player.body.position };
-    let facingYaw = 0;
+    // Starts facing away from the camera, which looks along -Z.
+    let facingYaw = Math.PI;
     let yawInput = 0;
     let frames = 0;
 

@@ -300,7 +300,8 @@ describe('LightingRig', () => {
     const offset = rig.sun.position.clone().sub(rig.sun.target.position);
     expect(offset.length()).toBeCloseTo(40, 6);
     expect(Math.atan2(offset.y, Math.hypot(offset.x, offset.z)) / (Math.PI / 180)).toBeCloseTo(34, 6);
-    expect(Math.atan2(offset.x, offset.z) / (Math.PI / 180)).toBeCloseTo(40, 6);
+    // 220 degrees reads as -140 through atan2, whose range is (-180, 180].
+    expect(Math.atan2(offset.x, offset.z) / (Math.PI / 180)).toBeCloseTo(-140, 6);
   });
 
   it('builds the fog', () => {

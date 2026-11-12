@@ -15,18 +15,25 @@ import type { LetterTextureCache } from './LetterTexture';
 import { PedestalView } from './PedestalView';
 
 export const SLICE_LAYOUT = {
-  playerStart: { x: 0, z: -3 },
-  cottage: { x: -6, z: 7, yaw: Math.PI },
-  trees: [{ x: 7, z: 6 }, { x: -9, z: -1 }, { x: 9, z: -5 }],
+  playerStart: { x: 0, z: 3 },
+  cottage: { x: 6, z: -7, yaw: 0 },
+  trees: [{ x: -7, z: -6 }, { x: 9, z: 1 }, { x: -9, z: 5 }],
   blocks: [
-    { id: 'block-s', letter: 's', x: -2.2, z: -0.5 },
-    { id: 'block-a', letter: 'a', x: 2.4, z: -1.5 },
-    { id: 'block-t', letter: 't', x: 3.4, z: 2.5 },
+    { id: 'block-s', letter: 's', x: -4.2, z: 1.0 },
+    { id: 'block-a', letter: 'a', x: -2.6, z: 2.2 },
+    { id: 'block-t', letter: 't', x: 2.6, z: 2.0 },
+    { id: 'block-p', letter: 'p', x: 4.2, z: 0.8 },
+    { id: 'block-i', letter: 'i', x: -5.0, z: -1.2 },
+    { id: 'block-n', letter: 'n', x: 5.0, z: -1.4 },
+    { id: 'block-m', letter: 'm', x: -3.4, z: 4.4 },
+    { id: 'block-o', letter: 'o', x: 3.4, z: 4.6 },
   ],
+  // Ordered left to right on screen: the camera's home yaw looks along -Z, so
+  // increasing x is screen-right.
   pedestals: [
-    { id: 'stump-1', x: -1.6, z: 3 },
-    { id: 'stump-2', x: 0, z: 3 },
-    { id: 'stump-3', x: 1.6, z: 3 },
+    { id: 'stump-1', x: -1.6, z: -3 },
+    { id: 'stump-2', x: 0, z: -3 },
+    { id: 'stump-3', x: 1.6, z: -3 },
   ],
 } as const;
 
@@ -156,7 +163,12 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   const start = SLICE_LAYOUT.playerStart;
   const startPosition = { x: start.x, y: groundY(start.x, start.z) + 0.1, z: start.z };
   const body = physics.createCharacter(startPosition);
-  const view = new CharacterView({ model: build('chuck'), clips: library.get('chuck').clips });
+  const view = new CharacterView({
+    model: build('chuck'),
+    clips: library.get('chuck').clips,
+    // In front of the chest: above the head the carried block hid Chuck.
+    carryOffset: [0, 0.5, 0.85],
+  });
   // The character carries a world yaw, so its root must be a direct child of the scene.
   view.root.position.set(startPosition.x, startPosition.y, startPosition.z);
   scene.add(view.root);
