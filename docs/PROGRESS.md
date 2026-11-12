@@ -54,6 +54,23 @@ automated browser window was throttled to about 1 frame a second, so nothing
 about performance can be concluded), keyboard / touch / gamepad on real
 devices, the ink outline weight and the focus highlight (both look faint).
 
+## Stage C — "Build it" (first pass, 2026-11-11)
+
+| ID | Task | Model | State |
+|---|---|---|---|
+| C-01 | Scene turned to read left to right, eight blocks, carry position, stronger lit state | Strata, 3 min | accepted — seen in browser |
+| C-02 | `WordRules`, word list | Strata, 11 min | accepted — unit-tested |
+| C-03 | `BellView`, block pulse / celebrate | Strata, 5 min | accepted — unit-tested |
+| C-04 | Bell in the world, synthesised chime, wiring | Strata, 6 min | accepted — driven in browser |
+
+Driven in the browser with audio running: s, a, t carried to the three
+stumps, bell lit and rung, sounding ran to its end. Not yet confirmed by
+ear or eye: the sounds themselves, the block hops, the chime.
+
+Small exact briefs with a size cap on tests and `timeout` in front of every
+test run took Strata 3-11 minutes each, against repeated 30-minute timeouts
+for the larger briefs of stage B.
+
 ## Written by the architect (not delegated)
 
 Docs, briefs, `AGENTS.md`, `opencode.json`, `package.json`, `tsconfig.json`,
