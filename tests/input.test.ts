@@ -373,6 +373,40 @@ describe('GamepadSource', () => {
     expect(out.jump).toBe(false);
   });
 
+  it('an unrecognised Xbox pad (mapping "", 8 axes) reads the right stick from axes 3 and 4', () => {
+    const pressed = new Set<number>();
+    // LX LY LT RX RY RT dpadX dpadY; the triggers rest at -1.
+    const axes = [0, 0, -1, 1, 0, -1, 0, 0];
+    const { source, out } = setup([fakePad('', axes, pressed)]);
+    sample(source, out); // baseline
+    expect(out.cameraYaw).toBeCloseTo(1); // right stick right swings, and the resting trigger does not
+    expect(out.cameraPitch).toBe(0);
+
+    axes[3] = 0;
+    axes[4] = -1;
+    sample(source, out);
+    expect(out.cameraYaw).toBe(0);
+    expect(out.cameraPitch).toBeCloseTo(-1); // stick up looks up
+
+    axes[4] = 0;
+    pressed.add(10); // stick click
+    sample(source, out);
+    expect(out.cameraReset).toBe(true);
+
+    axes[5] = 1; // right trigger pulled
+    sample(source, out);
+    expect(out.action).toBe(true);
+    pressed.add(7); // Start on this layout: not the action
+    axes[5] = -1;
+    sample(source, out);
+    sample(source, out);
+    expect(out.action).toBe(false);
+
+    axes[6] = -1; // d-pad left
+    sample(source, out);
+    expect(out.moveX).toBe(-1);
+  });
+
   it('prefers the first connected pad with the standard mapping', () => {
     const pressed = new Set<number>();
     const other = fakePad('unknown', [0.9, 0, 0, 0], pressed);

@@ -20,7 +20,7 @@ export function showPadDebug(): void {
       pad.buttons.forEach((button, index) => { if (button.pressed) down.push(index); });
       lines.push(
         `pad ${i}: ${pad.id}`,
-        `  mapping: "${pad.mapping}"  buttons: ${pad.buttons.length}`,
+        `  mapping: "${pad.mapping}"  buttons: ${pad.buttons.length}  axes: ${pad.axes.length}`,
         `  pressed: ${down.length ? down.join(', ') : '-'}`,
         `  axes: ${Array.from(pad.axes, (a) => a.toFixed(2)).join('  ')}`,
       );

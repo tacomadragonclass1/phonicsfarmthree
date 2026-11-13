@@ -31,6 +31,47 @@ const ZOOM_OUT_BUTTON = 4;
 const ZOOM_IN_BUTTON = 5;
 const CAMERA_RESET_BUTTON = 11;
 
+/** Where the right stick, its click and the right trigger are read from. */
+interface PadLayout {
+  rightX: number;
+  rightY: number;
+  resetButton: number;
+  actionButtons: readonly number[];
+  /** An axis that also counts as the action when pulled, or -1. */
+  actionAxis: number;
+  /** D-pad as two axes (x, y), or null when it is buttons 12 to 15. */
+  dpadAxes: readonly [number, number] | null;
+}
+
+const STANDARD_LAYOUT: PadLayout = {
+  rightX: 2,
+  rightY: 3,
+  resetButton: CAMERA_RESET_BUTTON,
+  actionButtons: ACTION_BUTTONS,
+  actionAxis: -1,
+  dpadAxes: null,
+};
+
+/**
+ * What a browser reports when it does not recognise the pad and passes the
+ * driver's own order through (mapping is ""; seen with Xbox pads on Linux and
+ * ChromeOS): the triggers are axes 2 and 5, so the right stick is axes 3 and 4,
+ * the d-pad is axes 6 and 7, and the stick click is button 10. Button 7 is Start
+ * there, so only B and the trigger axis are the action.
+ */
+const RAW_XBOX_LAYOUT: PadLayout = {
+  rightX: 3,
+  rightY: 4,
+  resetButton: 10,
+  actionButtons: [1],
+  actionAxis: 5,
+  dpadAxes: [6, 7],
+};
+
+function layoutFor(pad: GamepadLike): PadLayout {
+  return pad.mapping !== 'standard' && pad.axes.length >= 6 ? RAW_XBOX_LAYOUT : STANDARD_LAYOUT;
+}
+
 /** Rescaled so the edge of the deadzone reads 0 and full deflection reads 1. */
 function rescale(value: number, deadzone: number): number {
   const magnitude = Math.abs(value);
@@ -89,7 +130,9 @@ export class GamepadSource implements InputSource {
     const isNewPad = this.padKey !== key;
     this.padKey = key;
 
-    const isPressed = ACTION_BUTTONS.some((index) => this.pressed(pad, index));
+    const layout = layoutFor(pad);
+    const isPressed = layout.actionButtons.some((index) => this.pressed(pad, index))
+      || (layout.actionAxis >= 0 && (pad.axes[layout.actionAxis] ?? 0) > 0.5);
     if (isNewPad) this.actionWasPressed = isPressed;
     else if (isPressed && !this.actionWasPressed) out.action = true;
     this.actionWasPressed = isPressed;
@@ -99,13 +142,17 @@ export class GamepadSource implements InputSource {
     else if (jumpPressed && !this.jumpWasPressed) out.jump = true;
     this.jumpWasPressed = jumpPressed;
 
-    const resetPressed = this.pressed(pad, CAMERA_RESET_BUTTON);
+    const resetPressed = this.pressed(pad, layout.resetButton);
     if (isNewPad) this.resetWasPressed = resetPressed;
     else if (resetPressed && !this.resetWasPressed) out.cameraReset = true;
     this.resetWasPressed = resetPressed;
 
-    const dpadX = (this.pressed(pad, DPAD.right) ? 1 : 0) - (this.pressed(pad, DPAD.left) ? 1 : 0);
-    const dpadY = (this.pressed(pad, DPAD.down) ? 1 : 0) - (this.pressed(pad, DPAD.up) ? 1 : 0);
+    const dpadX = layout.dpadAxes
+      ? Math.round(pad.axes[layout.dpadAxes[0]] ?? 0)
+      : (this.pressed(pad, DPAD.right) ? 1 : 0) - (this.pressed(pad, DPAD.left) ? 1 : 0);
+    const dpadY = layout.dpadAxes
+      ? Math.round(pad.axes[layout.dpadAxes[1]] ?? 0)
+      : (this.pressed(pad, DPAD.down) ? 1 : 0) - (this.pressed(pad, DPAD.up) ? 1 : 0);
     if (dpadX !== 0 || dpadY !== 0) {
       out.moveX += dpadX;
       out.moveY += dpadY;
@@ -121,10 +168,10 @@ export class GamepadSource implements InputSource {
       }
     }
 
-    out.cameraYaw += rescale(pad.axes[2] ?? 0, RIGHT_DEADZONE);
+    out.cameraYaw += rescale(pad.axes[layout.rightX] ?? 0, RIGHT_DEADZONE);
     // Stick up reads negative. Up looks up, which means the camera itself comes
     // down toward the ground; down looks down from above.
-    out.cameraPitch += rescale(pad.axes[3] ?? 0, RIGHT_DEADZONE);
+    out.cameraPitch += rescale(pad.axes[layout.rightY] ?? 0, RIGHT_DEADZONE);
     out.cameraZoom += (this.pressed(pad, ZOOM_IN_BUTTON) ? 1 : 0) - (this.pressed(pad, ZOOM_OUT_BUTTON) ? 1 : 0);
   }
 
