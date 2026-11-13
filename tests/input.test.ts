@@ -348,7 +348,7 @@ describe('GamepadSource', () => {
     const axes = [0, 0, 0, -1];
     const { source, out } = setup([fakePad('standard', axes, pressed)]);
     sample(source, out); // baseline
-    expect(out.cameraPitch).toBeCloseTo(1); // stick up lifts the camera
+    expect(out.cameraPitch).toBeCloseTo(-1); // stick up looks up: the camera comes down
 
     axes[3] = 0;
     pressed.add(5);

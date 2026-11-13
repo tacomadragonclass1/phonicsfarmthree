@@ -25,6 +25,9 @@ import { PedestalView } from './PedestalView';
 /** Stump size, measured on the models: post + cap. */
 export const PEDESTAL = { radius: 0.69, height: 0.61 } as const;
 
+/** Half the height of the pickets: what the camera may not pass through. */
+const FENCE_CAMERA_HALF_HEIGHT = 0.65;
+
 /** Block half extent, the same as MODELS.block.collider. */
 const BLOCK_HALF = 0.4;
 
@@ -172,7 +175,22 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   fenceMesh.castShadow = true;
   fenceMesh.receiveShadow = true;
   scene.add(fenceMesh);
-  for (const options of fenceColliders('fence', runA, groundY, Layer.World)) physics.addStatic(options);
+  for (const options of fenceColliders('fence', runA, groundY, Layer.World)) {
+    physics.addStatic(options);
+    // The tall collider keeps Chuck in but lets the camera through, so the usual
+    // view from over the fence is untouched. This second one is only as tall as
+    // the pickets and stops the camera: a low view comes in front of the fence
+    // instead of looking through the boards from outside.
+    if (options.shape.kind !== 'box') continue;
+    const [halfLength, halfHeight, halfDepth] = options.shape.halfExtents;
+    physics.addStatic({
+      ...options,
+      id: `${options.id}-camera`,
+      shape: { kind: 'box', halfExtents: [halfLength, FENCE_CAMERA_HALF_HEIGHT, halfDepth] },
+      position: { ...options.position, y: options.position.y - halfHeight + FENCE_CAMERA_HALF_HEIGHT },
+      blocksCamera: true,
+    });
+  }
 
   const gatePath: FencePoint[] = [
     { x: gateLayout.x - gateLayout.width / 2, z: fence.north },

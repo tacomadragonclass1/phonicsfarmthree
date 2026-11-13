@@ -235,7 +235,14 @@ async function boot(): Promise<void> {
     const rig = new FollowCameraRig({
       probe: physics,
       homeYaw: Math.PI,
-      yawRange: (150 * Math.PI) / 180,
+      // All the way round, and from high overhead down to ground level looking up.
+      yawRange: Math.PI,
+      yawSpeed: 2.2,
+      // Just below level: the camera ends up at ground height, looking slightly up at him.
+      // Any lower and its line of sight runs under the ground, and under the fence.
+      pitchMin: (-4 * Math.PI) / 180,
+      pitchMax: (72 * Math.PI) / 180,
+      pitchSpeed: 1.5,
       holdView: true,
     });
     const camera = createGameCamera(canvas.clientWidth / canvas.clientHeight);
@@ -447,7 +454,7 @@ async function boot(): Promise<void> {
       // counts: trees and roofs are handled by the rig's own sweep.
       const eye = pose.position;
       const under = physics.groundHeight(clampTo(eye.x), clampTo(eye.z), 7.9, isTerrain) ?? 0;
-      if (eye.y < under + 0.6) eye.y = under + 0.6;
+      if (eye.y < under + 0.45) eye.y = under + 0.45;
       applyPose(camera, pose);
       world.lighting.follow(player.view.root.position);
       renderer.render(scene, camera);

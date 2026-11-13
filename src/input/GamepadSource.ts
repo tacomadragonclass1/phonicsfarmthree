@@ -122,8 +122,9 @@ export class GamepadSource implements InputSource {
     }
 
     out.cameraYaw += rescale(pad.axes[2] ?? 0, RIGHT_DEADZONE);
-    // Stick up reads negative, and up lifts the camera.
-    out.cameraPitch -= rescale(pad.axes[3] ?? 0, RIGHT_DEADZONE);
+    // Stick up reads negative. Up looks up, which means the camera itself comes
+    // down toward the ground; down looks down from above.
+    out.cameraPitch += rescale(pad.axes[3] ?? 0, RIGHT_DEADZONE);
     out.cameraZoom += (this.pressed(pad, ZOOM_IN_BUTTON) ? 1 : 0) - (this.pressed(pad, ZOOM_OUT_BUTTON) ? 1 : 0);
   }
 

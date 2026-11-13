@@ -120,7 +120,8 @@ export class FollowCameraRig {
       ['yawSpeed', opts.yawSpeed, nonNegative],
       ['yawHomeDelay', opts.yawHomeDelay, nonNegative],
       ['yawHomeRate', opts.yawHomeRate, nonNegative],
-      ['pitchMin', opts.pitchMin, (v) => finite(v) && v > 0 && v <= opts.pitch],
+      // May be below zero: the camera then sits lower than what it looks at, looking up.
+      ['pitchMin', opts.pitchMin, (v) => finite(v) && v > -Math.PI / 2 && v <= opts.pitch],
       ['pitchMax', opts.pitchMax, (v) => finite(v) && v >= opts.pitch && v < Math.PI / 2],
       ['pitchSpeed', opts.pitchSpeed, nonNegative],
       ['distanceMin', opts.distanceMin, (v) => positive(v) && v <= opts.distance],
@@ -202,7 +203,9 @@ export class FollowCameraRig {
       this.homing = false;
       this.idleTime = 0;
       if (Math.abs(yawInput) > 0.05) {
-        this.offset = clamp(this.offset + yawInput * opts.yawSpeed * dt, -opts.yawRange, opts.yawRange);
+        const swung = this.offset + yawInput * opts.yawSpeed * dt;
+        // A range of half a turn or more is a full orbit: go round instead of stopping at the back.
+        this.offset = opts.yawRange >= Math.PI ? wrapAngle(swung) : clamp(swung, -opts.yawRange, opts.yawRange);
       }
       if (Math.abs(pitchInput) > 0.05) {
         this.pitchNow = clamp(this.pitchNow + pitchInput * opts.pitchSpeed * dt, opts.pitchMin, opts.pitchMax);

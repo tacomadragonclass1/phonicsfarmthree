@@ -271,4 +271,22 @@ describe('applyRig', () => {
     expect(rig.pose.distance).toBeCloseTo(11, 2);
     expect(rig.pose.position.y - rig.pose.lookAt.y).toBeCloseTo(Math.sin(PITCH) * 11, 2);
   });
+
+  it('a full yaw range orbits all the way round, and the tilt can go below the horizon', () => {
+    const rig = new FollowCameraRig({ holdView: true, yawRange: Math.PI, pitchMin: -12 * DEG });
+    rig.snap(ZERO);
+    let turned = 0;
+    let last = rig.pose.yaw;
+    for (let i = 0; i < 600; i++) {
+      rig.update(ZERO, ZERO, 1, 1 / 60);
+      let step = rig.pose.yaw - last;
+      if (step < -Math.PI) step += 2 * Math.PI;
+      turned += step;
+      last = rig.pose.yaw;
+    }
+    expect(turned).toBeGreaterThan(2 * Math.PI); // never stopped at a limit
+
+    for (let i = 0; i < 600; i++) rig.update(ZERO, ZERO, 0, 1 / 60, -1);
+    expect(rig.pose.position.y).toBeLessThan(rig.pose.lookAt.y); // looking up at him
+  });
 });
