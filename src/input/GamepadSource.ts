@@ -31,45 +31,100 @@ const ZOOM_OUT_BUTTON = 4;
 const ZOOM_IN_BUTTON = 5;
 const CAMERA_RESET_BUTTON = 11;
 
-/** Where the right stick, its click and the right trigger are read from. */
-interface PadLayout {
+/** Where the right stick, its click, the bumpers and the right trigger are read from. */
+export interface PadLayout {
+  name: string;
   rightX: number;
   rightY: number;
   resetButton: number;
+  zoomOutButton: number;
+  zoomInButton: number;
   actionButtons: readonly number[];
   /** An axis that also counts as the action when pulled, or -1. */
   actionAxis: number;
-  /** D-pad as two axes (x, y), or null when it is buttons 12 to 15. */
-  dpadAxes: readonly [number, number] | null;
+  /** D-pad: buttons 12 to 15, two axes (x, y), or not read at all. */
+  dpad: 'buttons' | readonly [number, number] | 'none';
 }
 
 const STANDARD_LAYOUT: PadLayout = {
+  name: 'standard',
   rightX: 2,
   rightY: 3,
   resetButton: CAMERA_RESET_BUTTON,
+  zoomOutButton: ZOOM_OUT_BUTTON,
+  zoomInButton: ZOOM_IN_BUTTON,
   actionButtons: ACTION_BUTTONS,
   actionAxis: -1,
-  dpadAxes: null,
+  dpad: 'buttons',
 };
 
 /**
- * What a browser reports when it does not recognise the pad and passes the
- * driver's own order through (mapping is ""; seen with Xbox pads on Linux and
- * ChromeOS): the triggers are axes 2 and 5, so the right stick is axes 3 and 4,
- * the d-pad is axes 6 and 7, and the stick click is button 10. Button 7 is Start
- * there, so only B and the trigger axis are the action.
+ * A pad the browser does not recognise (mapping is "") is passed through in the
+ * driver's own order, and there are two of those for an Xbox pad. They cannot be
+ * told apart by name, only by where the triggers are: a trigger rests at -1, which
+ * a stick never does.
+ *
+ * "Triggers in the middle": left stick 0 1, right stick X 2, triggers 3 4, right
+ * stick Y 5. Seen with the stock Xbox pad; reading axis 3 as the stick there made
+ * the camera run on its own, because axis 3 is a trigger resting at -1.
  */
-const RAW_XBOX_LAYOUT: PadLayout = {
+const TRIGGERS_MIDDLE_LAYOUT: PadLayout = {
+  name: 'unrecognised pad, triggers on axes 3 and 4',
+  rightX: 2,
+  rightY: 5,
+  resetButton: 14,
+  zoomOutButton: 6,
+  zoomInButton: 7,
+  actionButtons: [1],
+  actionAxis: 4,
+  dpad: [6, 7],
+};
+
+/** "Triggers outside": left stick 0 1, left trigger 2, right stick 3 4, right trigger 5. */
+const TRIGGERS_OUTSIDE_LAYOUT: PadLayout = {
+  name: 'unrecognised pad, triggers on axes 2 and 5',
   rightX: 3,
   rightY: 4,
   resetButton: 10,
+  zoomOutButton: ZOOM_OUT_BUTTON,
+  zoomInButton: ZOOM_IN_BUTTON,
   actionButtons: [1],
   actionAxis: 5,
-  dpadAxes: [6, 7],
+  dpad: [6, 7],
 };
 
-function layoutFor(pad: GamepadLike): PadLayout {
-  return pad.mapping !== 'standard' && pad.axes.length >= 6 ? RAW_XBOX_LAYOUT : STANDARD_LAYOUT;
+/**
+ * Until the triggers show where they are, an unrecognised pad is read with the
+ * right stick's X only (axis 2 in both layouts above would be wrong for one of
+ * them, but axis 2 is what worked before any of this): nothing that might be a
+ * trigger is ever read as a stick.
+ */
+const UNKNOWN_LAYOUT: PadLayout = {
+  name: 'unrecognised pad, waiting to see the triggers',
+  rightX: 2,
+  rightY: -1,
+  resetButton: -1,
+  zoomOutButton: -1,
+  zoomInButton: -1,
+  actionButtons: [1],
+  actionAxis: -1,
+  dpad: 'none',
+};
+
+const AT_REST = -0.9;
+
+/** `current` is what was decided on earlier samples of this pad, or null. A decision is kept. */
+export function detectLayout(pad: GamepadLike, current: PadLayout | null): PadLayout {
+  if (pad.mapping === 'standard') return STANDARD_LAYOUT;
+  if (current !== null && current !== UNKNOWN_LAYOUT) return current;
+  const axis = (index: number): number => pad.axes[index] ?? 0;
+  if (pad.axes.length >= 6) {
+    if (axis(3) < AT_REST && axis(4) < AT_REST) return TRIGGERS_MIDDLE_LAYOUT;
+    if (axis(2) < AT_REST && axis(5) < AT_REST) return TRIGGERS_OUTSIDE_LAYOUT;
+    return UNKNOWN_LAYOUT;
+  }
+  // Four axes and no triggers among them: two sticks, in the usual order.
+  return STANDARD_LAYOUT;
 }
 
 /** Rescaled so the edge of the deadzone reads 0 and full deflection reads 1. */
@@ -92,6 +147,7 @@ export class GamepadSource implements InputSource {
   private actionWasPressed = false;
   private jumpWasPressed = false;
   private resetWasPressed = false;
+  private layout: PadLayout | null = null;
 
   constructor(getGamepads: GamepadReader) {
     this.getGamepads = getGamepads;
@@ -130,7 +186,9 @@ export class GamepadSource implements InputSource {
     const isNewPad = this.padKey !== key;
     this.padKey = key;
 
-    const layout = layoutFor(pad);
+    if (isNewPad) this.layout = null;
+    const layout = detectLayout(pad, this.layout);
+    this.layout = layout;
     const isPressed = layout.actionButtons.some((index) => this.pressed(pad, index))
       || (layout.actionAxis >= 0 && (pad.axes[layout.actionAxis] ?? 0) > 0.5);
     if (isNewPad) this.actionWasPressed = isPressed;
@@ -147,12 +205,15 @@ export class GamepadSource implements InputSource {
     else if (resetPressed && !this.resetWasPressed) out.cameraReset = true;
     this.resetWasPressed = resetPressed;
 
-    const dpadX = layout.dpadAxes
-      ? Math.round(pad.axes[layout.dpadAxes[0]] ?? 0)
-      : (this.pressed(pad, DPAD.right) ? 1 : 0) - (this.pressed(pad, DPAD.left) ? 1 : 0);
-    const dpadY = layout.dpadAxes
-      ? Math.round(pad.axes[layout.dpadAxes[1]] ?? 0)
-      : (this.pressed(pad, DPAD.down) ? 1 : 0) - (this.pressed(pad, DPAD.up) ? 1 : 0);
+    let dpadX = 0;
+    let dpadY = 0;
+    if (layout.dpad === 'buttons') {
+      dpadX = (this.pressed(pad, DPAD.right) ? 1 : 0) - (this.pressed(pad, DPAD.left) ? 1 : 0);
+      dpadY = (this.pressed(pad, DPAD.down) ? 1 : 0) - (this.pressed(pad, DPAD.up) ? 1 : 0);
+    } else if (layout.dpad !== 'none') {
+      dpadX = Math.round(pad.axes[layout.dpad[0]] ?? 0);
+      dpadY = Math.round(pad.axes[layout.dpad[1]] ?? 0);
+    }
     if (dpadX !== 0 || dpadY !== 0) {
       out.moveX += dpadX;
       out.moveY += dpadY;
@@ -171,8 +232,8 @@ export class GamepadSource implements InputSource {
     out.cameraYaw += rescale(pad.axes[layout.rightX] ?? 0, RIGHT_DEADZONE);
     // Stick up reads negative. Up looks up, which means the camera itself comes
     // down toward the ground; down looks down from above.
-    out.cameraPitch += rescale(pad.axes[layout.rightY] ?? 0, RIGHT_DEADZONE);
-    out.cameraZoom += (this.pressed(pad, ZOOM_IN_BUTTON) ? 1 : 0) - (this.pressed(pad, ZOOM_OUT_BUTTON) ? 1 : 0);
+    if (layout.rightY >= 0) out.cameraPitch += rescale(pad.axes[layout.rightY] ?? 0, RIGHT_DEADZONE);
+    out.cameraZoom += (this.pressed(pad, layout.zoomInButton) ? 1 : 0) - (this.pressed(pad, layout.zoomOutButton) ? 1 : 0);
   }
 
   release(): void {
@@ -180,6 +241,7 @@ export class GamepadSource implements InputSource {
     this.actionWasPressed = false;
     this.jumpWasPressed = false;
     this.resetWasPressed = false;
+    this.layout = null;
   }
 
   dispose(): void {

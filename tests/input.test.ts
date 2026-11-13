@@ -407,6 +407,45 @@ describe('GamepadSource', () => {
     expect(out.moveX).toBe(-1);
   });
 
+  it('an unrecognised pad with the triggers on axes 3 and 4 never reads a trigger as the stick', () => {
+    const pressed = new Set<number>();
+    // LX LY RX LT RT RY dpadX dpadY; the triggers rest at -1.
+    const axes = [0, 0, 0, -1, -1, 0, 0, 0];
+    const { source, out } = setup([fakePad('', axes, pressed)]);
+    for (let i = 0; i < 5; i++) {
+      sample(source, out);
+      expect(out.cameraYaw).toBe(0); // nothing turns on its own
+      expect(out.cameraPitch).toBe(0);
+    }
+
+    axes[2] = 1;
+    sample(source, out);
+    expect(out.cameraYaw).toBeCloseTo(1);
+    axes[2] = 0;
+    axes[5] = -1;
+    sample(source, out);
+    expect(out.cameraPitch).toBeCloseTo(-1); // stick up looks up
+
+    axes[5] = 0;
+    axes[4] = 1; // right trigger pulled: the action, not the camera
+    sample(source, out);
+    expect(out.action).toBe(true);
+    expect(out.cameraYaw).toBe(0);
+    expect(out.cameraPitch).toBe(0);
+  });
+
+  it('an unrecognised pad whose triggers have not shown themselves gets no tilt, only the swing', () => {
+    const axes = [0, 0, 1, 0, 0, 0];
+    const { source, out } = setup([fakePad('', axes, new Set<number>())]);
+    sample(source, out);
+    expect(out.cameraYaw).toBeCloseTo(1);
+    axes[2] = 0;
+    axes[3] = -1; // could be a trigger coming to rest, could be a stick: not read
+    sample(source, out);
+    expect(out.cameraYaw).toBe(0);
+    expect(out.cameraPitch).toBe(0);
+  });
+
   it('prefers the first connected pad with the standard mapping', () => {
     const pressed = new Set<number>();
     const other = fakePad('unknown', [0.9, 0, 0, 0], pressed);

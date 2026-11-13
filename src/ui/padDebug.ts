@@ -1,3 +1,5 @@
+import { detectLayout, type PadLayout } from '../input/GamepadSource';
+
 /**
  * Controller read-out, shown only when the address ends in `?pad`. It prints what
  * the browser reports for every connected pad, so a wrong button order can be seen
@@ -10,6 +12,7 @@ export function showPadDebug(): void {
     'background:rgba(0,0,0,.78);color:#fff;font:14px/1.35 monospace;white-space:pre-wrap;pointer-events:none';
   document.body.appendChild(box);
 
+  const layouts = new Map<number, PadLayout>();
   const frame = (): void => {
     const lines: string[] = [];
     const pads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -18,11 +21,16 @@ export function showPadDebug(): void {
       if (!pad) continue;
       const down: number[] = [];
       pad.buttons.forEach((button, index) => { if (button.pressed) down.push(index); });
+      // The same decision the game makes, kept between frames the same way.
+      const layout = detectLayout(pad, layouts.get(i) ?? null);
+      layouts.set(i, layout);
       lines.push(
         `pad ${i}: ${pad.id}`,
         `  mapping: "${pad.mapping}"  buttons: ${pad.buttons.length}  axes: ${pad.axes.length}`,
         `  pressed: ${down.length ? down.join(', ') : '-'}`,
         `  axes: ${Array.from(pad.axes, (a) => a.toFixed(2)).join('  ')}`,
+        `  game reads it as: ${layout.name}`,
+        `  right stick = axes ${layout.rightX} and ${layout.rightY}; stick click = button ${layout.resetButton}`,
       );
     }
     box.textContent = lines.length
