@@ -84,7 +84,7 @@ export const PROPS: readonly PropPlacement[] = [
   { model: 'planter', x: -13.6, z: 18.6 },
   { model: 'wallRun', x: 9, z: 31 },
   { model: 'wallRun', x: -8, z: 33.5 },
-  { model: 'tree', x: -9, z: 13.5 },
+  { model: 'tree', x: -9, z: 15.8 },
   { model: 'tree', x: 11, z: 26 },
   { model: 'tree', x: -10, z: 22 },
   { model: 'tree', x: -19, z: 31 },
@@ -92,13 +92,13 @@ export const PROPS: readonly PropPlacement[] = [
   { model: 'tree', x: 15, z: 34 },
   { model: 'tree', x: 19, z: 12.5 },
   { model: 'tree', x: -19, z: 10.5 },
-  { model: 'treeB', x: 9.8, z: 13.2 },
+  { model: 'treeB', x: 9.8, z: 15.8 },
   { model: 'treeB', x: -12, z: 30 },
   { model: 'treeB', x: 13, z: 23 },
   { model: 'treeB', x: -19, z: 21.5 },
   { model: 'treeB', x: 19.5, z: 23 },
   { model: 'bush', x: -8.6, z: 11.2 },
-  { model: 'bush', x: 3.2, z: 11 },
+  { model: 'bush', x: 3.4, z: 10.6 },
   { model: 'bush', x: -14, z: 21.6 },
   { model: 'bush', x: 14.6, z: 14.6 },
   { model: 'bush', x: -6, z: 29 },
@@ -144,32 +144,71 @@ export const ANNETTE = { x: 2.5, z: 25.5, yaw: -35 * DEG } as const;
  */
 export const ANNETTE_PATH: readonly { x: number; z: number }[] = [
   { x: 2.5, z: 25.5 },
-  { x: 1.5, z: 14 },
+  { x: 2.8, z: 20 },
+  { x: 0.6, z: 14 },
   { x: 0, z: 7 },
   { x: 0, z: 1 },
-  { x: -7, z: 0.5 },
+  { x: -4.5, z: -1.5 },
 ];
+
+/** The bell in the middle of the village: ringing it starts the letter hunt again. */
+export const VILLAGE_BELL = { x: 0, z: 20 } as const;
 
 /**
  * The village letters, each somewhere that means something. `place` is for
  * people reading this file; the game does not use it.
  */
 export const VILLAGE_BLOCKS: readonly { id: string; letter: string; x: number; z: number; place: string }[] = [
-  { id: 'find-s', letter: 's', x: -12, z: 11.6, place: 'bakery doorstep' },
   { id: 'find-a', letter: 'a', x: -5.5, z: 12.2, place: 'bookshop doorstep' },
-  { id: 'find-t', letter: 't', x: 6, z: 12, place: 'clock house doorstep' },
-  { id: 'find-p', letter: 'p', x: 12.9, z: 13.1, place: 'between the flower shop planters' },
-  { id: 'find-i', letter: 'i', x: -1.6, z: 18.9, place: 'beside the well' },
-  { id: 'find-n', letter: 'n', x: -5, z: 23.7, place: 'in front of the bench' },
-  { id: 'find-m', letter: 'm', x: 8.1, z: 23.3, place: 'in the flower patch' },
-  { id: 'find-d', letter: 'd', x: -13.3, z: 17.1, place: 'cottage doorstep' },
-  { id: 'find-g', letter: 'g', x: -14, z: 26.5, place: 'workshop door' },
-  { id: 'find-o', letter: 'o', x: -8.8, z: 15.3, place: 'under the big tree' },
+  { id: 'find-b', letter: 'b', x: -12, z: 11.6, place: 'bakery doorstep' },
   { id: 'find-c', letter: 'c', x: 13.3, z: 18, place: 'windmill door' },
-  { id: 'find-k', letter: 'k', x: 14.6, z: 28, place: 'by the woodshed' },
+  { id: 'find-d', letter: 'd', x: -13.3, z: 17.1, place: 'cottage doorstep' },
   { id: 'find-e', letter: 'e', x: -9, z: 30.1, place: 'in the mushroom ring' },
+  { id: 'find-f', letter: 'f', x: 8.1, z: 23.3, place: 'in the flower patch' },
+  { id: 'find-g', letter: 'g', x: -14, z: 26.5, place: 'workshop door' },
+  { id: 'find-h', letter: 'h', x: 6, z: 16.2, place: 'in front of the east bench' },
+  { id: 'find-i', letter: 'i', x: -5.6, z: 18.4, place: 'beside the well' },
+  { id: 'find-j', letter: 'j', x: -8, z: 34.8, place: 'by the west garden wall' },
+  { id: 'find-n', letter: 'n', x: -5, z: 23.7, place: 'in front of the west bench' },
+  { id: 'find-o', letter: 'o', x: -8.8, z: 17.5, place: 'under the big tree' },
+  { id: 'find-p', letter: 'p', x: 12.9, z: 13.1, place: 'between the flower shop planters' },
+  { id: 'find-r', letter: 'r', x: 9, z: 32.3, place: 'by the east garden wall' },
+  { id: 'find-s', letter: 's', x: 11, z: 27.1, place: 'under the tree by the woodshed lane' },
+  { id: 'find-t', letter: 't', x: 6, z: 12, place: 'clock house doorstep' },
   { id: 'find-u', letter: 'u', x: 2.6, z: 7.9, place: 'at the fingerpost by the gate' },
-  { id: 'find-r', letter: 'r', x: 9, z: 32.3, place: 'by the garden wall' },
+  { id: 'find-w', letter: 'w', x: 14.6, z: 28, place: 'by the woodshed' },
+];
+
+/**
+ * Dirt paths, drawn on the ground by the game. Every path runs from one place to
+ * another: a door, the bell square, the gate. `width` is in metres.
+ */
+export const PATHS: readonly { name: string; width: number; points: readonly { x: number; z: number }[] }[] = [
+  { name: 'bell square to the gate and on to the word stumps', width: 2, points: [
+    { x: 0, z: 18 }, { x: 0, z: 13.2 }, { x: 0, z: 4 }, { x: 0, z: -5.5 },
+  ] },
+  { name: 'bell square south to the garden walls', width: 2, points: [
+    { x: 0, z: 22 }, { x: 0, z: 29 }, { x: 0, z: 31.8 }, { x: 0, z: 32.9 },
+  ] },
+  { name: 'west garden wall', width: 1.4, points: [{ x: 0, z: 31.8 }, { x: -4, z: 32.4 }, { x: -8, z: 32.4 }] },
+  { name: 'east garden wall', width: 1.4, points: [{ x: 0, z: 31.8 }, { x: 4.5, z: 33 }, { x: 9, z: 33 }] },
+  { name: 'shop street', width: 1.8, points: [
+    { x: -12, z: 13.2 }, { x: -5.5, z: 13.4 }, { x: 0, z: 13.2 }, { x: 6, z: 13.3 }, { x: 13, z: 14 },
+  ] },
+  { name: 'bakery door', width: 1.3, points: [{ x: -12, z: 13.2 }, { x: -12, z: 10.8 }] },
+  { name: 'bookshop door', width: 1.3, points: [{ x: -5.5, z: 13.4 }, { x: -5.5, z: 11.4 }] },
+  { name: 'clock house door', width: 1.3, points: [{ x: 6, z: 13.3 }, { x: 6, z: 11.2 }] },
+  { name: 'flower shop door', width: 1.3, points: [{ x: 13, z: 14 }, { x: 13, z: 12 }] },
+  { name: 'cottage door', width: 1.4, points: [{ x: -2, z: 20.4 }, { x: -8.5, z: 19.8 }, { x: -13.9, z: 17.1 }] },
+  { name: 'workshop door', width: 1.4, points: [{ x: -1.4, z: 21.6 }, { x: -6.5, z: 25.6 }, { x: -13.6, z: 26.5 }] },
+  { name: 'windmill door', width: 1.4, points: [{ x: 2, z: 19.6 }, { x: 8, z: 18.6 }, { x: 13.8, z: 18 }] },
+  { name: 'woodshed', width: 1.4, points: [{ x: 1.4, z: 21.6 }, { x: 6.5, z: 28.2 }, { x: 14.8, z: 28.5 }] },
+];
+
+/** Round patches of bare ground: the bell square and the clearing the word stumps stand in. */
+export const PATCHES: readonly { name: string; x: number; z: number; radius: number }[] = [
+  { name: 'bell square', x: 0, z: 20, radius: 3 },
+  { name: 'word clearing', x: 0.6, z: -7.6, radius: 4.4 },
 ];
 
 export const BELL = { x: 3.6, z: -8.2 } as const;

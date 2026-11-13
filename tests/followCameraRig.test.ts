@@ -240,4 +240,35 @@ describe('applyRig', () => {
     ).normalize();
     expect(forward.dot(want)).toBeCloseTo(1, 10);
   });
+
+  it('tilt and zoom move the camera within their limits and stay put with holdView', () => {
+    const rig = new FollowCameraRig({ holdView: true });
+    rig.snap(ZERO);
+    for (let i = 0; i < 600; i++) rig.update(ZERO, ZERO, 0, 1 / 60, 1, 1);
+    const height = (pose: { position: Vec3; lookAt: Vec3 }) => pose.position.y - pose.lookAt.y;
+    expect(rig.pose.distance).toBeCloseTo(6, 3); // zoomed all the way in
+    expect(height(rig.pose)).toBeCloseTo(Math.sin(65 * DEG) * 6, 2);
+
+    for (let i = 0; i < 600; i++) rig.update(ZERO, ZERO, 0, 1 / 60, -1, -1);
+    expect(rig.pose.distance).toBeCloseTo(18, 1);
+    expect(height(rig.pose)).toBeCloseTo(Math.sin(14 * DEG) * rig.pose.distance, 2);
+
+    // Idle for a long time: a held view does not drift home.
+    for (let i = 0; i < 600; i++) rig.update(ZERO, ZERO, 1, 1 / 60);
+    const yaw = rig.pose.yaw;
+    for (let i = 0; i < 600; i++) rig.update(ZERO, ZERO, 0, 1 / 60);
+    expect(rig.pose.yaw).toBeCloseTo(yaw, 10);
+    expect(rig.pose.distance).toBeCloseTo(18, 1);
+  });
+
+  it('resetView eases yaw, tilt and zoom back to the home view', () => {
+    const rig = new FollowCameraRig({ holdView: true, homeYaw: 0.4 });
+    rig.snap(ZERO);
+    for (let i = 0; i < 120; i++) rig.update(ZERO, ZERO, 1, 1 / 60, 1, 1);
+    rig.resetView();
+    for (let i = 0; i < 900; i++) rig.update(ZERO, ZERO, 0, 1 / 60);
+    expect(rig.pose.yaw).toBeCloseTo(0.4, 3);
+    expect(rig.pose.distance).toBeCloseTo(11, 2);
+    expect(rig.pose.position.y - rig.pose.lookAt.y).toBeCloseTo(Math.sin(PITCH) * 11, 2);
+  });
 });

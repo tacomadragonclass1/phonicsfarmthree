@@ -193,9 +193,19 @@ export class PhysicsWorld implements WorldQuery, CameraProbe, Disposable {
     return !blocked;
   }
 
-  groundHeight(x: number, z: number, fromY: number): number | null {
+  /** `accept` narrows the search to some World colliders by id (the terrain only, say). */
+  groundHeight(x: number, z: number, fromY: number, accept?: (id: string) => boolean): number | null {
     const ray = new RAPIER.Ray({ x, y: fromY, z }, { x: 0, y: -1, z: 0 });
-    const hit = this.world.castRay(ray, GROUND_MAX_DROP, true, undefined, interactionGroups(ALL_LAYERS, Layer.World));
+    const hit = this.world.castRay(
+      ray,
+      GROUND_MAX_DROP,
+      true,
+      undefined,
+      interactionGroups(ALL_LAYERS, Layer.World),
+      undefined,
+      undefined,
+      accept ? (collider) => accept(this.idOf(collider.handle)) : undefined,
+    );
     return hit ? fromY - hit.timeOfImpact : null;
   }
 

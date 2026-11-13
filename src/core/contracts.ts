@@ -72,6 +72,12 @@ export interface InputState {
   jump: boolean;
   /** Camera swing rate in [-1, 1]. Positive swings the view to the right. */
   cameraYaw: number;
+  /** Camera tilt rate in [-1, 1]. Positive lifts the camera for a view from higher up. */
+  cameraPitch: number;
+  /** Camera zoom rate in [-1, 1]. Positive moves the camera closer. */
+  cameraZoom: number;
+  /** True for one simulation step per press of "put the camera back". */
+  cameraReset: boolean;
 }
 
 /**

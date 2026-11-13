@@ -22,9 +22,17 @@ import { PhysicsWorld } from './physics/PhysicsWorld';
 import { Hud, type ElLike } from './ui/Hud';
 import { buildWorld, blockColliderCentre } from './world/buildWorld';
 import { LetterTextureCache, loadLetterFont, type CanvasLike } from './world/LetterTexture';
-import { ANNETTE_PATH } from './world/layout';
+import { ANNETTE_PATH, VILLAGE_FENCE } from './world/layout';
 import { DebugSource, installDebugHook, type DebugHook } from './debug';
 import { showPadDebug } from './ui/padDebug';
+
+/** Chuck counts as having left the village, or come back, this far past the fence line. */
+const VILLAGE_EDGE_MARGIN = 1.2;
+/** Walking into Annette: closer than this she speaks, and not again until he is past the second distance. */
+const BUMP_DISTANCE = 0.95;
+const BUMP_REARM_DISTANCE = 1.6;
+
+const isTerrain = (id: string): boolean => id.startsWith('terrain');
 
 /** What focus needs from a view: BlockView, PedestalView and BellView all have it. */
 interface FocusedView {
@@ -39,6 +47,9 @@ function errorMessage(error: unknown): string {
   if (error instanceof AssetLoadError) return `Could not load ${error.url}: ${error.message}`;
   return `Something went wrong: ${error instanceof Error ? error.message : String(error)}`;
 }
+
+/** The terrain stops a little past the playable square; outside it there is nothing to ask about. */
+const clampTo = (value: number): number => Math.min(36.5, Math.max(-36.5, value));
 
 const copyVec = (from: Vec3, to: Vec3): void => {
   to.x = from.x;
@@ -120,40 +131,113 @@ async function boot(): Promise<void> {
       activate: () => find.talk(),
     };
 
-    const guide = new Guide({ path: ANNETTE_PATH });
     // The activatable and the rules hold this same object, so it is mutated in place.
     const annettePos = world.annette.position;
     const annettePrev: Vec3 = { ...annettePos };
     const annetteCurr: Vec3 = { ...annettePos };
+    /**
+     * home: standing in the village. leading: walking Chuck to the word stumps.
+     * away: waiting there. returning: walking back to her place in the village.
+     */
+    let annetteMode: 'home' | 'leading' | 'away' | 'returning' = 'home';
+    let annetteYaw = world.annette.homeYaw;
 
-    /** She only walks once the last letter is found; until then she stands where buildWorld put her. */
+    // Her collider is off while she walks, so nothing pushes the player; it is
+    // put back where she stopped.
+    function onGuideArrived(): void {
+      const y = world.groundY(guide.position.x, guide.position.z);
+      physics.setPosition('annette', { x: guide.position.x, y: y + 0.75, z: guide.position.z });
+      physics.setEnabled('annette', true);
+      if (annetteMode === 'returning') {
+        annetteMode = 'home';
+        annetteYaw = world.annette.homeYaw;
+      } else {
+        annetteMode = 'away';
+        annetteYaw = guide.yaw;
+      }
+    }
+
+    /** A guide is one walk: a new one is made for each. `waits` is whether she stops for Chuck. */
+    function makeGuide(path: readonly { x: number; z: number }[], waits: boolean): Guide {
+      const made = new Guide(waits ? { path } : { path, waitDistance: Infinity });
+      made.on('arrived', onGuideArrived);
+      return made;
+    }
+    let guide = makeGuide(ANNETTE_PATH, true);
+
     function stepAnnette(dt: number, follower: Vec3): void {
-      if (!guide.leading && !guide.arrived) return;
+      if (!guide.leading) return;
       guide.step(dt, follower);
       copyVec(annetteCurr, annettePrev);
       annettePos.x = guide.position.x;
       annettePos.z = guide.position.z;
       annettePos.y = world.groundY(annettePos.x, annettePos.z);
       copyVec(annettePos, annetteCurr);
+      annetteYaw = guide.yaw;
     }
 
-    // Her collider is off while she walks, so nothing pushes the player; it is
-    // put back where she stopped.
-    guide.on('arrived', () => {
-      const y = world.groundY(guide.position.x, guide.position.z);
-      physics.setPosition('annette', { x: guide.position.x, y: y + 0.75, z: guide.position.z });
-      physics.setEnabled('annette', true);
-    });
+    /** She walks back the way she came, from wherever she is, without waiting for anyone. */
+    function sendAnnetteHome(): void {
+      if (annetteMode === 'home' || annetteMode === 'returning') return;
+      const back = [...ANNETTE_PATH].reverse();
+      let nearest = 0;
+      for (let i = 1; i < back.length; i++) {
+        const d = Math.hypot(back[i].x - annettePos.x, back[i].z - annettePos.z);
+        if (d < Math.hypot(back[nearest].x - annettePos.x, back[nearest].z - annettePos.z)) nearest = i;
+      }
+      physics.setEnabled('annette', false);
+      annetteMode = 'returning';
+      guide = makeGuide([{ x: annettePos.x, z: annettePos.z }, ...back.slice(nearest)], false);
+      guide.lead();
+    }
+
+    const villageBell: Activatable = {
+      id: 'villageBell',
+      position: world.villageBell.position,
+      activate: () => {
+        world.villageBell.view.ring();
+        audio.chime();
+        restartVillage();
+      },
+    };
+
+    // Only there to be used while the gate is shut: it is taken out of the list
+    // when the gate opens, so an open gateway never takes the action from a letter.
+    const gate: Activatable = {
+      id: 'gate',
+      position: world.gate.position,
+      activate: () => openGate(),
+    };
+    const activatables: Activatable[] = [bell, annette, villageBell, gate];
+
+    function openGate(): void {
+      world.gate.open();
+      const index = activatables.indexOf(gate);
+      if (index >= 0) activatables.splice(index, 1);
+    }
+
+    function closeGate(): void {
+      world.gate.close();
+      if (!activatables.includes(gate)) activatables.push(gate);
+    }
 
     rules = new CarryRules({
       world: physics,
       blocks: world.blocks,
       pedestals: world.pedestals,
-      activatables: [bell, annette],
+      // Held by reference: the gate comes and goes from this list.
+      activatables,
     });
 
     // Home yaw PI looks along -Z, so screen-right is +X and words read left to right.
-    const rig = new FollowCameraRig({ probe: physics, homeYaw: Math.PI });
+    // The player may swing, tilt and zoom, and the view stays where it is put;
+    // pressing the right stick eases it back to this home view.
+    const rig = new FollowCameraRig({
+      probe: physics,
+      homeYaw: Math.PI,
+      yawRange: (150 * Math.PI) / 180,
+      holdView: true,
+    });
     const camera = createGameCamera(canvas.clientWidth / canvas.clientHeight);
 
     const debug = new DebugSource();
@@ -183,7 +267,9 @@ async function boot(): Promise<void> {
             ? world.pedestalViews.get(target.pedestal.id) ?? null
             : target.target.id === 'bell'
               ? world.bell.view
-              : null;
+              : target.target.id === 'villageBell'
+                ? world.villageBell.view
+                : null;
         if (view) {
           view.setFocused(true);
           focusedView = view;
@@ -218,10 +304,77 @@ async function boot(): Promise<void> {
     find.on('found', (event) => collect(event.blockId, event.letter));
 
     find.on('complete', () => {
-      world.gate.open();
+      openGate();
       physics.setEnabled('annette', false);
+      annetteMode = 'leading';
+      guide = makeGuide(ANNETTE_PATH, true);
       guide.lead();
     });
+
+    /** Every village letter back in its place, no medals, and nothing asked for yet. */
+    function resetVillageGame(): void {
+      const carried = rules.carried;
+      if (carried !== null && world.villageBlocks.includes(carried)) rules.releaseCarried();
+      // The lit view may be one of the blocks about to be rebuilt.
+      focusedView?.setFocused(false);
+      focusedView = null;
+      world.resetVillageBlocks();
+      hud.clearMedals();
+      find.reset();
+      sequencer.stop();
+      hud.setActionReady(ready());
+    }
+
+    /** She asks for a letter; if she is off in CVC Land she comes home as she does. */
+    function startAsking(): void {
+      sendAnnetteHome();
+      find.begin();
+    }
+
+    /** The village bell: start the letter hunt again, here and now. */
+    function restartVillage(): void {
+      resetVillageGame();
+      closeGate();
+      gateClosePending = false;
+      startAsking();
+    }
+
+    let inVillage = true;
+    /** Set when Chuck walks out: the gate shuts behind him once Annette is not in the gateway. */
+    let gateClosePending = false;
+    let bumpArmed = true;
+
+    function stepVillage(chuck: Vec3): void {
+      const north = VILLAGE_FENCE.north;
+      if (inVillage && chuck.z < north - VILLAGE_EDGE_MARGIN) {
+        // Leaving ends the hunt: it starts fresh the next time he comes in.
+        inVillage = false;
+        resetVillageGame();
+        gateClosePending = true;
+      } else if (!inVillage && chuck.z > north + VILLAGE_EDGE_MARGIN) {
+        inVillage = true;
+        gateClosePending = false;
+        startAsking();
+      }
+
+      // Never on her: not while she is still on her way out through it, nor on her way back in.
+      const annetteCrossing = (annetteMode === 'leading' && annettePos.z > north - 1.5)
+        || (annetteMode === 'returning' && annettePos.z < north + 1.5);
+      if (gateClosePending && !annetteCrossing) {
+        gateClosePending = false;
+        closeGate();
+      }
+
+      // Walking into her makes her say what she wants again, once per bump and
+      // never over the top of something she is already saying.
+      const gap = Math.hypot(chuck.x - annettePos.x, chuck.z - annettePos.z);
+      if (gap < BUMP_DISTANCE) {
+        if (bumpArmed && !sequencer.busy) find.remind();
+        bumpArmed = false;
+      } else if (gap > BUMP_REARM_DISTANCE) {
+        bumpArmed = true;
+      }
+    }
 
     rules.on('pickedUp', (block) => {
       physics.setEnabled(block.id, false);
@@ -253,6 +406,8 @@ async function boot(): Promise<void> {
     // Starts facing away from the camera, which looks along -Z.
     let facingYaw = Math.PI;
     let yawInput = 0;
+    let pitchInput = 0;
+    let zoomInput = 0;
     let frames = 0;
 
     function simulate(dt: number): void {
@@ -268,7 +423,11 @@ async function boot(): Promise<void> {
       if (Math.hypot(dir.x, dir.z) > 0.1) facingYaw = Math.atan2(dir.x, dir.z);
       rules.step(curr, { x: Math.sin(facingYaw), z: Math.cos(facingYaw) }, s.action);
       stepAnnette(dt, curr);
+      stepVillage(curr);
       yawInput = s.cameraYaw;
+      pitchInput = s.cameraPitch;
+      zoomInput = s.cameraZoom;
+      if (s.cameraReset) rig.resetView();
     }
 
     function render(alpha: number, frameDt: number): void {
@@ -278,13 +437,17 @@ async function boot(): Promise<void> {
       player.view.setMoving(speed > 0.3);
 
       world.annette.view.setPose(annettePrev, annetteCurr, alpha);
-      // Only the walk takes over the facing buildWorld gave her when she was standing still.
-      if (guide.leading || guide.arrived) world.annette.view.setFacing(guide.yaw);
+      world.annette.view.setFacing(annetteYaw);
       world.annette.view.setMoving(guide.moving);
 
       world.update(frameDt);
 
-      const pose = rig.update(player.view.root.position, player.body.velocity, yawInput, frameDt);
+      const pose = rig.update(player.view.root.position, player.body.velocity, yawInput, frameDt, pitchInput, zoomInput);
+      // A low, close view could otherwise sink into a hillside. Only the terrain
+      // counts: trees and roofs are handled by the rig's own sweep.
+      const eye = pose.position;
+      const under = physics.groundHeight(clampTo(eye.x), clampTo(eye.z), 7.9, isTerrain) ?? 0;
+      if (eye.y < under + 0.6) eye.y = under + 0.6;
       applyPose(camera, pose);
       world.lighting.follow(player.view.root.position);
       renderer.render(scene, camera);
@@ -304,7 +467,7 @@ async function boot(): Promise<void> {
 
     const hook: DebugHook = {
       get ready() { return loop.running; },
-      hold: (moveX, moveY, cameraYaw) => debug.hold(moveX, moveY, cameraYaw),
+      hold: (moveX, moveY, cameraYaw, cameraPitch, cameraZoom) => debug.hold(moveX, moveY, cameraYaw, cameraPitch, cameraZoom),
       press: () => debug.press(),
       teleport: (x, z) => {
         const y = (physics.groundHeight(x, z, 6) ?? 0) + 0.1;
@@ -334,7 +497,9 @@ async function boot(): Promise<void> {
         wanted: find.wanted,
         medals: hud.medalCount,
         villageLeft: world.villageBlocks.length,
-        gateOpen: world.gate.view.isOpen,
+        gateOpen: world.gate.isOpen,
+        inVillage,
+        annetteMode,
         findDone: find.done,
         annette: { x: annettePos.x, z: annettePos.z, leading: guide.leading, arrived: guide.arrived },
         stumps: world.pedestals.map((pedestal) => pedestal.blockId),

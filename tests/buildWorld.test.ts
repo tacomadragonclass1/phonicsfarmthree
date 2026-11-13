@@ -4,7 +4,7 @@ import { AssetLibrary, type GltfLoaderLike } from '../src/assets/AssetLibrary';
 import { MODELS, type ModelId } from '../src/assets/manifest';
 import { PhysicsWorld } from '../src/physics/PhysicsWorld';
 import { LetterTextureCache, type CanvasLike, type Ctx2DLike } from '../src/world/LetterTexture';
-import { BELL, BLOCKS, PEDESTALS, PROPS, TERRAIN_TILES, VILLAGE_BLOCKS, VILLAGE_FENCE } from '../src/world/layout';
+import { BELL, BLOCKS, PEDESTALS, PROPS, TERRAIN_TILES, VILLAGE_BELL, VILLAGE_BLOCKS, VILLAGE_FENCE } from '../src/world/layout';
 import { blockColliderCentre, buildWorld, PEDESTAL, type SliceWorld } from '../src/world/buildWorld';
 
 const DT = 1 / 60;
@@ -223,17 +223,56 @@ describe('buildWorld', () => {
     expect(physics.canReach(from, to)).toBe(true);
   });
 
+  it('closing the gate blocks the gap again', async () => {
+    const { physics, world } = await setup();
+    const gate = VILLAGE_FENCE.gate;
+    const from = { x: gate.x, y: 0.6, z: gate.z - 1 };
+    const to = { x: gate.x, y: 0.6, z: gate.z + 1 };
+    world.gate.open();
+    expect(world.gate.isOpen).toBe(true);
+    world.gate.close();
+    world.gate.close(); // closing twice must not throw
+    expect(world.gate.isOpen).toBe(false);
+    expect(physics.canReach(from, to)).toBe(false);
+  });
+
+  it('resetVillageBlocks puts every village letter back, found or not, and leaves the word blocks alone', async () => {
+    const { physics, world, scene } = await setup();
+    const villageBlocks = world.villageBlocks; // the live array the rules hold
+    const wordIds = world.blocks.filter((block) => !villageBlocks.includes(block)).map((block) => block.id);
+    const found = villageBlocks[0];
+    const centre = blockColliderCentre(found.position);
+    world.removeBlock(found.id);
+    world.removeBlock(villageBlocks[0].id);
+
+    world.resetVillageBlocks();
+    expect(world.villageBlocks).toBe(villageBlocks);
+    expect(villageBlocks.map((block) => block.id)).toEqual(VILLAGE_BLOCKS.map((block) => block.id));
+    expect(world.blocks.length).toBe(VILLAGE_BLOCKS.length + BLOCKS.length);
+    expect(world.blocks.filter((block) => !villageBlocks.includes(block)).map((block) => block.id)).toEqual(wordIds);
+    expect(world.blockViews.get(found.id)?.root.parent).toBe(scene);
+    expect(physics.isBoxClear(centre, { x: 0.3, y: 0.3, z: 0.3 })).toBe(false);
+  });
+
+  it('has a second bell in the village, and draws the paths', async () => {
+    const { scene, world } = await setup();
+    expect(world.villageBell.position.x).toBe(VILLAGE_BELL.x);
+    expect(world.villageBell.position.z).toBe(VILLAGE_BELL.z);
+    expect(world.villageBell.view.root.parent).toBe(scene);
+    expect(scene.children.some((child) => child.name === 'Paths')).toBe(true);
+  });
+
   it('removeBlock takes a found letter out of the world', async () => {
     const { physics, world } = await setup();
-    const block = world.villageBlocks.find((b) => b.id === 'find-s');
-    const view = world.blockViews.get('find-s');
-    if (!block || !view) throw new Error('no find-s block');
+    const block = world.villageBlocks.find((b) => b.id === 'find-a');
+    const view = world.blockViews.get('find-a');
+    if (!block || !view) throw new Error('no find-a block');
     const centre = blockColliderCentre(block.position);
 
-    world.removeBlock('find-s');
+    world.removeBlock('find-a');
     expect(world.blocks.length).toBe(VILLAGE_BLOCKS.length + BLOCKS.length - 1);
     expect(world.villageBlocks.length).toBe(VILLAGE_BLOCKS.length - 1);
-    expect(world.blockViews.has('find-s')).toBe(false);
+    expect(world.blockViews.has('find-a')).toBe(false);
     expect(view.root.parent).toBeNull();
     expect(physics.isBoxClear(centre, { x: 0.3, y: 0.3, z: 0.3 })).toBe(true);
   });

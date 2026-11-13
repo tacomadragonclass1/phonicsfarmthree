@@ -20,9 +20,16 @@ export type GamepadReader = () => ArrayLike<GamepadLike | null>;
 const LEFT_DEADZONE = 0.2;
 const RIGHT_DEADZONE = 0.25;
 const DPAD = { up: 12, down: 13, left: 14, right: 15 };
-/** Xbox layout: A (0) jumps, B (1) picks up and puts down. */
+/**
+ * Xbox layout. A (0) jumps; B (1) or the right trigger (7) picks up, puts down and
+ * uses things. The right stick swings and tilts the camera, the bumpers zoom
+ * (LB 4 out, RB 5 in) and pressing the right stick (11) puts the camera back.
+ */
 const JUMP_BUTTON = 0;
-const ACTION_BUTTON = 1;
+const ACTION_BUTTONS = [1, 7];
+const ZOOM_OUT_BUTTON = 4;
+const ZOOM_IN_BUTTON = 5;
+const CAMERA_RESET_BUTTON = 11;
 
 /** Rescaled so the edge of the deadzone reads 0 and full deflection reads 1. */
 function rescale(value: number, deadzone: number): number {
@@ -43,6 +50,7 @@ export class GamepadSource implements InputSource {
   private padKey: string | null = null;
   private actionWasPressed = false;
   private jumpWasPressed = false;
+  private resetWasPressed = false;
 
   constructor(getGamepads: GamepadReader) {
     this.getGamepads = getGamepads;
@@ -72,6 +80,7 @@ export class GamepadSource implements InputSource {
       this.padKey = null;
       this.actionWasPressed = false;
       this.jumpWasPressed = false;
+      this.resetWasPressed = false;
       return;
     }
 
@@ -80,7 +89,7 @@ export class GamepadSource implements InputSource {
     const isNewPad = this.padKey !== key;
     this.padKey = key;
 
-    const isPressed = this.pressed(pad, ACTION_BUTTON);
+    const isPressed = ACTION_BUTTONS.some((index) => this.pressed(pad, index));
     if (isNewPad) this.actionWasPressed = isPressed;
     else if (isPressed && !this.actionWasPressed) out.action = true;
     this.actionWasPressed = isPressed;
@@ -89,6 +98,11 @@ export class GamepadSource implements InputSource {
     if (isNewPad) this.jumpWasPressed = jumpPressed;
     else if (jumpPressed && !this.jumpWasPressed) out.jump = true;
     this.jumpWasPressed = jumpPressed;
+
+    const resetPressed = this.pressed(pad, CAMERA_RESET_BUTTON);
+    if (isNewPad) this.resetWasPressed = resetPressed;
+    else if (resetPressed && !this.resetWasPressed) out.cameraReset = true;
+    this.resetWasPressed = resetPressed;
 
     const dpadX = (this.pressed(pad, DPAD.right) ? 1 : 0) - (this.pressed(pad, DPAD.left) ? 1 : 0);
     const dpadY = (this.pressed(pad, DPAD.down) ? 1 : 0) - (this.pressed(pad, DPAD.up) ? 1 : 0);
@@ -108,12 +122,16 @@ export class GamepadSource implements InputSource {
     }
 
     out.cameraYaw += rescale(pad.axes[2] ?? 0, RIGHT_DEADZONE);
+    // Stick up reads negative, and up lifts the camera.
+    out.cameraPitch -= rescale(pad.axes[3] ?? 0, RIGHT_DEADZONE);
+    out.cameraZoom += (this.pressed(pad, ZOOM_IN_BUTTON) ? 1 : 0) - (this.pressed(pad, ZOOM_OUT_BUTTON) ? 1 : 0);
   }
 
   release(): void {
     this.padKey = null;
     this.actionWasPressed = false;
     this.jumpWasPressed = false;
+    this.resetWasPressed = false;
   }
 
   dispose(): void {

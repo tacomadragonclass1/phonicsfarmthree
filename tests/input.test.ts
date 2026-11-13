@@ -51,7 +51,7 @@ function keyEvent(code: string, repeat = false): FakeKeyEvent {
 }
 
 function newState(): InputState {
-  return { moveX: 0, moveY: 0, action: false, jump: false, cameraYaw: 0 };
+  return { moveX: 0, moveY: 0, action: false, jump: false, cameraYaw: 0, cameraPitch: 0, cameraZoom: 0, cameraReset: false };
 }
 
 /** Sources add into a state the manager has zeroed, so tests zero it the same way. */
@@ -61,6 +61,9 @@ function sample(source: InputSource, out: InputState): InputState {
   out.action = false;
   out.jump = false;
   out.cameraYaw = 0;
+  out.cameraPitch = 0;
+  out.cameraZoom = 0;
+  out.cameraReset = false;
   source.sample(out);
   return out;
 }
@@ -340,6 +343,36 @@ describe('GamepadSource', () => {
     expect(out.action).toBe(false);
   });
 
+  it('right stick tilts, bumpers zoom, R3 resets the camera once, and the right trigger is the action', () => {
+    const pressed = new Set<number>();
+    const axes = [0, 0, 0, -1];
+    const { source, out } = setup([fakePad('standard', axes, pressed)]);
+    sample(source, out); // baseline
+    expect(out.cameraPitch).toBeCloseTo(1); // stick up lifts the camera
+
+    axes[3] = 0;
+    pressed.add(5);
+    sample(source, out);
+    expect(out.cameraPitch).toBe(0);
+    expect(out.cameraZoom).toBe(1);
+    pressed.delete(5);
+    pressed.add(4);
+    sample(source, out);
+    expect(out.cameraZoom).toBe(-1);
+    pressed.delete(4);
+
+    pressed.add(11);
+    sample(source, out);
+    expect(out.cameraReset).toBe(true);
+    sample(source, out);
+    expect(out.cameraReset).toBe(false);
+
+    pressed.add(7);
+    sample(source, out);
+    expect(out.action).toBe(true);
+    expect(out.jump).toBe(false);
+  });
+
   it('prefers the first connected pad with the standard mapping', () => {
     const pressed = new Set<number>();
     const other = fakePad('unknown', [0.9, 0, 0, 0], pressed);
@@ -552,6 +585,9 @@ describe('InputManager', () => {
     action,
     jump: false,
     cameraYaw,
+    cameraPitch: 0,
+    cameraZoom: 0,
+    cameraReset: false,
   });
 
   it('merges what every source adds', () => {

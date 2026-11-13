@@ -213,4 +213,38 @@ describe('FindRules', () => {
     find.talk();
     expect(find.wanted).not.toBeNull();
   });
+
+  it('remind repeats the request, and says nothing before the first one or after the last', () => {
+    const blocks = [makeBlock('s', 's')];
+    const { rules, sound } = setup(blocks, () => null);
+    rules.remind();
+    expect(sound.played).toEqual([]);
+
+    rules.begin();
+    rules.remind();
+    expect(sound.played).toEqual([['annette_find', 's'], ['annette_find', 's']]);
+
+    blocks.length = 0;
+    rules.next();
+    const count = sound.played.length;
+    rules.remind();
+    expect(sound.played.length).toBe(count);
+  });
+
+  it('reset lets a finished game begin again', () => {
+    const blocks = [makeBlock('s', 's')];
+    const { rules, events } = setup(blocks, () => null);
+    rules.begin();
+    blocks.length = 0;
+    rules.next();
+    expect(rules.done).toBe(true);
+
+    blocks.push(makeBlock('a', 'a'));
+    rules.reset();
+    expect(rules.done).toBe(false);
+    expect(rules.wanted).toBeNull();
+    rules.begin();
+    expect(rules.wanted).toBe('a');
+    expect(events.at(-1)).toEqual({ event: 'asked', payload: { letter: 'a' } });
+  });
 });

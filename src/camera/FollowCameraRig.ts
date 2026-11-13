@@ -19,6 +19,16 @@ export interface FollowCameraOptions {
   yawSpeed?: number;
   yawHomeDelay?: number;
   yawHomeRate?: number;
+  /** True: a view the player chose stays until it is reset; false: yaw drifts home when idle. */
+  holdView?: boolean;
+  /** Limits and speed of the tilt the player may add, radians and radians/second. */
+  pitchMin?: number;
+  pitchMax?: number;
+  pitchSpeed?: number;
+  /** Limits and speed of the zoom the player may add, metres and metres/second. */
+  distanceMin?: number;
+  distanceMax?: number;
+  zoomSpeed?: number;
   probeRadius?: number;
   pullInRate?: number;
   pushOutRate?: number;
@@ -52,6 +62,11 @@ export class FollowCameraRig {
   private offset = 0;
   private idleTime = 0;
   private currentDistance = 0;
+  /** The tilt and full distance the player has chosen; they start at the options' values. */
+  private pitchNow: number;
+  private distanceNow: number;
+  /** Set by resetView: everything eases back to the home view until the next input. */
+  private homing = false;
   private started = false;
 
   private readonly focus: Vec3 = { x: 0, y: 0, z: 0 };
@@ -79,11 +94,18 @@ export class FollowCameraRig {
       yawSpeed: options.yawSpeed ?? 1.6,
       yawHomeDelay: options.yawHomeDelay ?? 2.5,
       yawHomeRate: options.yawHomeRate ?? 2.0,
+      holdView: options.holdView ?? false,
+      pitchMin: options.pitchMin ?? Math.min((14 * Math.PI) / 180, options.pitch ?? 1),
+      pitchMax: options.pitchMax ?? Math.max((65 * Math.PI) / 180, options.pitch ?? 0),
+      pitchSpeed: options.pitchSpeed ?? 0.9,
+      distanceMin: options.distanceMin ?? Math.min(6, options.distance ?? 11),
+      distanceMax: options.distanceMax ?? Math.max(18, options.distance ?? 11),
+      zoomSpeed: options.zoomSpeed ?? 7,
       probeRadius: options.probeRadius ?? 0.3,
       pullInRate: options.pullInRate ?? 12.5,
       pushOutRate: options.pushOutRate ?? 1.67,
     };
-    const rules: Array<[string, number, (value: number) => boolean]> = [
+    const rules: Array<[string, number | boolean, (value: number) => boolean]> = [
       ['distance', opts.distance, positive],
       ['minDistance', opts.minDistance, (v) => nonNegative(v) && v <= opts.distance],
       ['pitch', opts.pitch, (v) => finite(v) && v > 0 && v < Math.PI / 2],
@@ -98,17 +120,25 @@ export class FollowCameraRig {
       ['yawSpeed', opts.yawSpeed, nonNegative],
       ['yawHomeDelay', opts.yawHomeDelay, nonNegative],
       ['yawHomeRate', opts.yawHomeRate, nonNegative],
+      ['pitchMin', opts.pitchMin, (v) => finite(v) && v > 0 && v <= opts.pitch],
+      ['pitchMax', opts.pitchMax, (v) => finite(v) && v >= opts.pitch && v < Math.PI / 2],
+      ['pitchSpeed', opts.pitchSpeed, nonNegative],
+      ['distanceMin', opts.distanceMin, (v) => positive(v) && v <= opts.distance],
+      ['distanceMax', opts.distanceMax, (v) => finite(v) && v >= opts.distance],
+      ['zoomSpeed', opts.zoomSpeed, nonNegative],
       ['probeRadius', opts.probeRadius, positive],
       ['pullInRate', opts.pullInRate, nonNegative],
       ['pushOutRate', opts.pushOutRate, nonNegative],
     ];
     for (const [name, value, ok] of rules) {
-      if (!ok(value)) throw new RangeError(`FollowCameraRig ${name} is out of range, got ${value}`);
+      if (typeof value === 'number' && !ok(value)) throw new RangeError(`FollowCameraRig ${name} is out of range, got ${value}`);
     }
     this.opts = opts;
     this.probe = options.probe ?? null;
     this.homeYaw = wrapAngle(opts.homeYaw);
     this.homeYawTarget = this.homeYaw;
+    this.pitchNow = opts.pitch;
+    this.distanceNow = opts.distance;
   }
 
   /** World yaw of screen up: the direction a push up the screen walks. */
@@ -125,6 +155,9 @@ export class FollowCameraRig {
     this.leadVec.z = 0;
     this.offset = 0;
     this.idleTime = 0;
+    this.pitchNow = this.opts.pitch;
+    this.distanceNow = this.opts.distance;
+    this.homing = false;
     this.currentDistance = this.opts.distance;
     this.started = true;
     this.pose.yaw = wrapAngle(this.homeYaw);
@@ -133,7 +166,13 @@ export class FollowCameraRig {
     this.pose.distance = this.currentDistance;
   }
 
-  update(target: Vec3, velocity: Vec3, yawInput: number, dt: number): CameraPose {
+  /** Ease back to the home view: yaw, tilt and zoom. Any camera input takes over again. */
+  resetView(): void {
+    this.homing = true;
+  }
+
+  /** `pitchInput` (+ lifts the camera) and `zoomInput` (+ moves it closer) are rates in [-1, 1]. */
+  update(target: Vec3, velocity: Vec3, yawInput: number, dt: number, pitchInput = 0, zoomInput = 0): CameraPose {
     const opts = this.opts;
     if (!this.started) this.snap(target);
 
@@ -158,12 +197,26 @@ export class FollowCameraRig {
     this.focus.y = damp(this.focus.y, target.y, opts.followRate, dt);
 
     this.homeYaw = dampAngle(this.homeYaw, this.homeYawTarget, HOME_YAW_RATE, dt);
-    if (Math.abs(yawInput) > 0.05) {
-      this.offset = clamp(this.offset + yawInput * opts.yawSpeed * dt, -opts.yawRange, opts.yawRange);
+    const steering = Math.abs(yawInput) > 0.05 || Math.abs(pitchInput) > 0.05 || Math.abs(zoomInput) > 0.05;
+    if (steering) {
+      this.homing = false;
       this.idleTime = 0;
+      if (Math.abs(yawInput) > 0.05) {
+        this.offset = clamp(this.offset + yawInput * opts.yawSpeed * dt, -opts.yawRange, opts.yawRange);
+      }
+      if (Math.abs(pitchInput) > 0.05) {
+        this.pitchNow = clamp(this.pitchNow + pitchInput * opts.pitchSpeed * dt, opts.pitchMin, opts.pitchMax);
+      }
+      if (Math.abs(zoomInput) > 0.05) {
+        this.distanceNow = clamp(this.distanceNow - zoomInput * opts.zoomSpeed * dt, opts.distanceMin, opts.distanceMax);
+      }
     } else {
       this.idleTime += dt;
-      if (this.idleTime > opts.yawHomeDelay) {
+      if (this.homing) {
+        this.offset = damp(this.offset, 0, opts.yawHomeRate, dt);
+        this.pitchNow = damp(this.pitchNow, opts.pitch, opts.yawHomeRate, dt);
+        this.distanceNow = damp(this.distanceNow, opts.distance, opts.yawHomeRate, dt);
+      } else if (!opts.holdView && this.idleTime > opts.yawHomeDelay) {
         this.offset = damp(this.offset, 0, opts.yawHomeRate, dt);
       }
     }
@@ -173,9 +226,10 @@ export class FollowCameraRig {
 
     // The sweep is measured against the full distance, so the fraction it
     // returns is directly the fraction of the distance the camera may use.
-    this.placeAt(opts.distance);
+    const full = this.distanceNow;
+    this.placeAt(full);
     const fraction = this.probe ? clamp(this.probe.sweep(this.pose.lookAt, this.pose.position, opts.probeRadius), 0, 1) : 1;
-    const allowed = Math.max(opts.minDistance, fraction * opts.distance);
+    const allowed = Math.max(Math.min(opts.minDistance, full), fraction * full);
     const rate = allowed < this.currentDistance ? opts.pullInRate : opts.pushOutRate;
     this.currentDistance = damp(this.currentDistance, allowed, rate, dt);
     this.pose.distance = this.currentDistance;
@@ -196,11 +250,10 @@ export class FollowCameraRig {
 
   /** Camera sits behind lookAt along yaw, raised by pitch, at distance d. */
   private placeAt(d: number): void {
-    const opts = this.opts;
-    const horizontal = Math.cos(opts.pitch) * d;
+    const horizontal = Math.cos(this.pitchNow) * d;
     this.pose.position.x = this.pose.lookAt.x - Math.sin(this.pose.yaw) * horizontal;
     this.pose.position.z = this.pose.lookAt.z - Math.cos(this.pose.yaw) * horizontal;
-    this.pose.position.y = this.pose.lookAt.y + Math.sin(opts.pitch) * d;
+    this.pose.position.y = this.pose.lookAt.y + Math.sin(this.pitchNow) * d;
   }
 }
 

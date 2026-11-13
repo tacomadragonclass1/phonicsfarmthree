@@ -22,27 +22,35 @@ export class AudioEngine implements ClipBackend, Disposable {
   }
 
   /**
-   * Fetch and decode every entry, in order, so the first failure is the one
-   * reported. A clip that fails to load is never substituted.
+   * Fetch and decode every entry, all at once: one after another the clips cost
+   * a network round trip each before the game could start. If several fail, the
+   * one reported is the first in the list. A clip that fails is never substituted.
    */
   async load(entries: Record<string, { url: string }>, baseUrl?: string): Promise<void> {
-    for (const [key, entry] of Object.entries(entries)) {
-      const url = baseUrl ? new URL(entry.url, baseUrl).href : entry.url;
+    const results = await Promise.allSettled(
+      Object.entries(entries).map(([key, entry]) => this.loadOne(key, entry.url, baseUrl)),
+    );
+    for (const result of results) {
+      if (result.status === 'rejected') throw result.reason;
+    }
+  }
 
-      let bytes: ArrayBuffer;
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        bytes = await response.arrayBuffer();
-      } catch (error) {
-        throw new Error(`AudioEngine: could not fetch ${url}: ${reason(error)}`);
-      }
+  private async loadOne(key: string, entryUrl: string, baseUrl?: string): Promise<void> {
+    const url = baseUrl ? new URL(entryUrl, baseUrl).href : entryUrl;
 
-      try {
-        this.buffers.set(key.toLowerCase(), await this.context.decodeAudioData(bytes));
-      } catch (error) {
-        throw new Error(`AudioEngine: could not decode ${url}: ${reason(error)}`);
-      }
+    let bytes: ArrayBuffer;
+    try {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      bytes = await response.arrayBuffer();
+    } catch (error) {
+      throw new Error(`AudioEngine: could not fetch ${url}: ${reason(error)}`);
+    }
+
+    try {
+      this.buffers.set(key.toLowerCase(), await this.context.decodeAudioData(bytes));
+    } catch (error) {
+      throw new Error(`AudioEngine: could not decode ${url}: ${reason(error)}`);
     }
   }
 

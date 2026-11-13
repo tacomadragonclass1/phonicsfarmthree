@@ -8,13 +8,17 @@ import { createFog, createLightingRig, type LightingRig } from '../assets/look/L
 import type { CharacterBody } from '../physics/CharacterBody';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
 import { staticFromSpec } from './colliders';
-import { ANNETTE, BELL, BLOCKS, PEDESTALS, PLAYER_START, PROPS, TERRAIN_TILES, VILLAGE_BLOCKS, VILLAGE_FENCE, WORLD_HALF_EXTENT } from './layout';
+import {
+  ANNETTE, BELL, BLOCKS, PATCHES, PATHS, PEDESTALS, PLAYER_START, PROPS, TERRAIN_TILES,
+  VILLAGE_BELL, VILLAGE_BLOCKS, VILLAGE_FENCE, WORLD_HALF_EXTENT,
+} from './layout';
 import { BellView } from './BellView';
 import { BlockView } from './BlockView';
 import { CharacterView } from './CharacterView';
 import { buildFenceMesh, fenceColliders, type FencePoint } from './Fence';
 import { GateView } from './GateView';
 import { LetterFaces } from './LetterFaces';
+import { buildPathMesh } from './Paths';
 import type { LetterTextureCache } from './LetterTexture';
 import { PedestalView } from './PedestalView';
 
@@ -54,8 +58,13 @@ export interface SliceWorld {
   blockViews: Map<string, BlockView>;
   pedestalViews: Map<string, PedestalView>;
   bell: { id: string; position: Vec3; view: BellView };
-  annette: { id: string; position: Vec3; view: CharacterView };
-  gate: { view: GateView; open(): void };
+  /** The bell in the village square. */
+  villageBell: { id: string; position: Vec3; view: BellView };
+  annette: { id: string; position: Vec3; view: CharacterView; home: Vec3; homeYaw: number };
+  /** `position` is the middle of the gateway. Open and close also add and remove what blocks the gap. */
+  gate: { id: string; position: Vec3; view: GateView; readonly isOpen: boolean; open(): void; close(): void };
+  /** Puts every village letter back where the layout has it, found or not. */
+  resetVillageBlocks(): void;
   /** A found letter leaves the world: arrays, collider and view. Unknown id: does nothing. */
   removeBlock(id: string): void;
   groundY(x: number, z: number): number;
@@ -88,14 +97,18 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     );
   }
 
-  /** Painted models, so the manifest's shadow flags can be applied in one pass. */
-  const shadowed: Array<{ root: THREE.Object3D; model: ModelId }> = [];
-
-  /** Instantiate and paint; the caller decides where the copy sits in the graph. */
+  /** Instantiate, paint and set the manifest's shadow flags; the caller decides where the copy sits. */
   function build(model: ModelId, look: LookOptions = {}): THREE.Object3D {
     const object = library.instantiate(model);
     applyLook(object, look);
-    shadowed.push({ root: object, model });
+    const casts = MODELS[model].castsShadow;
+    object.traverse((node) => {
+      if (!(node instanceof THREE.Mesh)) return;
+      // Ink hulls are visual only: they must never be in a shadow pass.
+      if (node.userData.isOutline === true) return;
+      node.castShadow = casts;
+      node.receiveShadow = true;
+    });
     return object;
   }
 
@@ -114,6 +127,10 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     scene.add(object);
     register(tile.id, 'terrain', object, Layer.World);
   }
+
+  // Paths next, while the terrain is the only ground there is: draped after the
+  // props, a path would climb whatever stands on it.
+  scene.add(buildPathMesh(PATHS, PATCHES, groundY));
 
   /** Invisible wall closing the square at WORLD_HALF_EXTENT: 1 m thick, 10 m tall. */
   function addEdge(id: string, position: Vec3, halfExtents: [number, number, number]): void {
@@ -171,14 +188,19 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   const gateView = new GateView({ hinge, mesh: gateMesh });
   scene.add(gateView.root);
 
+  const gatePosition = { x: gateLayout.x, y: groundY(gateLayout.x, fence.north), z: fence.north };
+
   // The leaf is drawn by the swinging mesh; this is what stops Chuck walking through the gap.
-  physics.addStatic({
-    id: 'gate',
-    shape: { kind: 'box', halfExtents: [gateLayout.width / 2, 1.5, 0.12] },
-    position: { x: gateLayout.x, y: groundY(gateLayout.x, fence.north) + 1.5, z: fence.north },
-    layer: Layer.World,
-    blocksCamera: false,
-  });
+  function blockGateway(): void {
+    physics.addStatic({
+      id: 'gate',
+      shape: { kind: 'box', halfExtents: [gateLayout.width / 2, 1.5, 0.12] },
+      position: { x: gatePosition.x, y: gatePosition.y + 1.5, z: gatePosition.z },
+      layer: Layer.World,
+      blocksCamera: false,
+    });
+  }
+  blockGateway();
 
   let gateOpened = false;
   function openGate(): void {
@@ -186,6 +208,12 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     gateOpened = true;
     physics.remove('gate');
     gateView.open();
+  }
+  function closeGate(): void {
+    if (!gateOpened) return;
+    gateOpened = false;
+    blockGateway();
+    gateView.close();
   }
 
   const pedestals: PedestalState[] = [];
@@ -218,6 +246,12 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   // Only the frame is physical: the bell hangs from it and swings freely.
   const bellCollider = staticFromSpec('bell', MODELS.bellFrame.collider, bellView.root, Layer.World, false);
   if (bellCollider) physics.addStatic(bellCollider);
+
+  const villageBellPosition = { x: VILLAGE_BELL.x, y: groundY(VILLAGE_BELL.x, VILLAGE_BELL.z), z: VILLAGE_BELL.z };
+  const villageBellView = new BellView({ position: villageBellPosition, frame: build('bellFrame'), bell: build('bell') });
+  scene.add(villageBellView.root);
+  const villageBellCollider = staticFromSpec('villageBell', MODELS.bellFrame.collider, villageBellView.root, Layer.World, false);
+  if (villageBellCollider) physics.addStatic(villageBellCollider);
 
   const annetteLayout = ANNETTE;
   const annettePosition = { x: annetteLayout.x, y: groundY(annetteLayout.x, annetteLayout.z), z: annetteLayout.z };
@@ -307,21 +341,16 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
   scene.add(view.root);
   const player = { body, view };
 
-  for (const { root, model } of shadowed) {
-    const casts = MODELS[model].castsShadow;
-    root.traverse((node) => {
-      if (!(node instanceof THREE.Mesh)) return;
-      // Ink hulls are visual only: they must never be in a shadow pass.
-      if (node.userData.isOutline === true) return;
-      node.castShadow = casts;
-      node.receiveShadow = true;
-    });
+  function resetVillageBlocks(): void {
+    for (const id of villageBlocks.map((block) => block.id)) removeBlock(id);
+    for (const entry of VILLAGE_BLOCKS) addBlock(entry, true);
   }
 
   function update(frameDt: number): void {
     for (const blockView of blockViews.values()) blockView.update(frameDt);
     for (const pedestalView of pedestalViews.values()) pedestalView.update(frameDt);
     bellView.update(frameDt);
+    villageBellView.update(frameDt);
     gateView.update(frameDt);
     player.view.update(frameDt);
     annetteView.update(frameDt);
@@ -336,8 +365,23 @@ export function buildWorld(deps: BuildWorldDeps): SliceWorld {
     blockViews,
     pedestalViews,
     bell: { id: 'bell', position: bellPosition, view: bellView },
-    annette: { id: 'annette', position: annettePosition, view: annetteView },
-    gate: { view: gateView, open: openGate },
+    villageBell: { id: 'villageBell', position: villageBellPosition, view: villageBellView },
+    annette: {
+      id: 'annette',
+      position: annettePosition,
+      view: annetteView,
+      home: { ...annettePosition },
+      homeYaw: annetteLayout.yaw,
+    },
+    gate: {
+      id: 'gate',
+      position: gatePosition,
+      view: gateView,
+      get isOpen() { return gateOpened; },
+      open: openGate,
+      close: closeGate,
+    },
+    resetVillageBlocks,
     removeBlock,
     groundY,
     update,

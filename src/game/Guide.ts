@@ -78,9 +78,10 @@ export class Guide implements EventSource<GuideEvents> {
     if (!this.isLeading) return;
 
     let gap = Math.hypot(follower.x - this.position.x, follower.z - this.position.z);
-    // A child who runs on ahead is not left behind: if he is nearer to where she
-    // is heading than she is, she keeps walking instead of waiting for him to come back.
-    const target = this.path[Math.min(this.nextIndex, this.path.length - 1)];
+    // A child who runs on ahead is not left behind: if he is nearer to the end of
+    // the walk than she is, she keeps walking instead of waiting for him to come back.
+    // Measured to the end, not the next corner: he may be several corners ahead.
+    const target = this.path[this.path.length - 1];
     const herDistance = Math.hypot(target.x - this.position.x, target.z - this.position.z);
     const hisDistance = Math.hypot(target.x - follower.x, target.z - follower.z);
     if (hisDistance < herDistance) gap = 0;

@@ -138,6 +138,14 @@ export class Hud implements Disposable {
     this.newestMedal = medal;
   }
 
+  /** The village game started again: every medal goes. */
+  clearMedals(): void {
+    this.medalLetters.clear();
+    if (this.tray) this.tray.remove();
+    this.tray = null;
+    this.newestMedal = null;
+  }
+
   get medalCount(): number {
     return this.medalLetters.size;
   }

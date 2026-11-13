@@ -111,6 +111,39 @@ a tree and the start point sat where they hid Chuck from the camera.
 Not seen: Annette's whole walk and arrival (the automated browser runs at
 about a twelfth of real time), any sound, frame rate.
 
+## Stage F — classroom round (2026-11-12 and 13, written by Claude at the owner's request)
+
+Not delegated: the owner asked for this round to be coded directly.
+
+- **Controller.** A jumps; B or the right trigger picks up, puts down and uses
+  things. Buttons never fired in Chrome before (the pad was compared by object
+  and Chrome returns a new object every poll): fixed. `?pad` on the address
+  shows a live read-out of the controller.
+- **Camera.** Right stick swings (now ±150°) and tilts (14°–65°), bumpers zoom
+  (6–18 m), and the view stays where it is put. Pressing the right stick eases
+  back to the approved home view, which is unchanged. The camera is kept above
+  the terrain.
+- **Village letters** are now a b c d e f g h i j n o p r s t u w (18).
+- **Village bell** in the middle of the village: ringing it starts the hunt
+  again (letters back, medals cleared, gate shut, Annette asks afresh).
+- **Gate** opens when the action is used at it, from either side. Walking out
+  of the village resets the hunt and shuts the gate behind Chuck; walking back
+  in starts it again, and Annette walks home if she was in CVC Land.
+- **Walking into Annette** makes her repeat her request (once per bump, never
+  over her own voice).
+- **Paths** are drawn by the game (`src/world/Paths.ts`) from `PATHS` and
+  `PATCHES` in `layout.ts`: every one runs between two places. The path and
+  bare patch baked into the terrain texture were painted out.
+- **Load time.** Model textures re-encoded from PNG to WebP by
+  `tools/optimize-models.py` (models the game fetches: 13.3 MB → 4.9 MB);
+  the 29 sound clips load together instead of one after another.
+
+Browser pass (production build, `window.__pf`): bell reset, gate from both
+sides, leave and return, completion, Annette leading / returning / home, the
+camera at its limits, and the paths were all seen working. Not checked: any
+sound (so the bump line was not heard), a real controller on the new camera
+buttons, frame rate, measured load time on the classroom network.
+
 ## Written by the architect (not delegated)
 
 Docs, briefs, `AGENTS.md`, `opencode.json`, `package.json`, `tsconfig.json`,

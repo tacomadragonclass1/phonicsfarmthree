@@ -26,7 +26,7 @@ export class GateView implements Updatable, Disposable {
   private yaw = 0;
   private disposed = false;
 
-  /** True once `open` has been called. */
+  /** True from `open` until `close`. */
   get isOpen(): boolean {
     return this.opened;
   }
@@ -44,6 +44,10 @@ export class GateView implements Updatable, Disposable {
   open(): void {
     if (this.disposed) return;
     this.opened = true;
+  }
+
+  close(): void {
+    this.opened = false;
   }
 
   update(dt: number): void {

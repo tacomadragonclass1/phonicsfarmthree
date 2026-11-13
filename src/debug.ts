@@ -9,9 +9,13 @@ export class DebugSource implements InputSource {
   private moveX = 0;
   private moveY = 0;
   private cameraYaw = 0;
+  private cameraPitch = 0;
+  private cameraZoom = 0;
   private latched = false;
 
-  hold(moveX: number, moveY: number, cameraYaw = 0): void {
+  hold(moveX: number, moveY: number, cameraYaw = 0, cameraPitch = 0, cameraZoom = 0): void {
+    this.cameraPitch = cameraPitch;
+    this.cameraZoom = cameraZoom;
     this.moveX = moveX;
     this.moveY = moveY;
     this.cameraYaw = cameraYaw;
@@ -25,6 +29,8 @@ export class DebugSource implements InputSource {
     out.moveX += this.moveX;
     out.moveY += this.moveY;
     out.cameraYaw += this.cameraYaw;
+    out.cameraPitch += this.cameraPitch;
+    out.cameraZoom += this.cameraZoom;
     if (this.latched) {
       out.action = true;
       this.latched = false;
@@ -35,6 +41,8 @@ export class DebugSource implements InputSource {
     this.moveX = 0;
     this.moveY = 0;
     this.cameraYaw = 0;
+    this.cameraPitch = 0;
+    this.cameraZoom = 0;
     this.latched = false;
   }
 
@@ -47,7 +55,7 @@ export class DebugSource implements InputSource {
 export interface DebugHook {
   /** True once the loop is running. */
   readonly ready: boolean;
-  hold(moveX: number, moveY: number, cameraYaw?: number): void;
+  hold(moveX: number, moveY: number, cameraYaw?: number, cameraPitch?: number, cameraZoom?: number): void;
   press(): void;
   teleport(x: number, z: number): void;
   /** Delivers the letter she is waiting for through the normal find path. */

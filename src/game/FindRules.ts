@@ -61,6 +61,19 @@ export class FindRules implements EventSource<FindEvents> {
     return this.finished;
   }
 
+  /** Forget everything: nothing wanted, nothing finished. `begin()` starts her again. */
+  reset(): void {
+    this.currentLetter = null;
+    this.previousLetter = null;
+    this.finished = false;
+  }
+
+  /** She says what she is waiting for again. Silent when she is not waiting for anything. */
+  remind(): void {
+    if (this.finished || this.currentLetter === null) return;
+    this.ask(this.currentLetter);
+  }
+
   /** She makes her first request on her own, without being talked to. */
   begin(): void {
     if (this.finished || this.currentLetter !== null) return;

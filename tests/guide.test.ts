@@ -25,6 +25,16 @@ function arcLength(path: readonly GuidePoint[], p: GuidePoint): number {
   return total;
 }
 
+describe('a follower far ahead', () => {
+  it('does not stop her at a corner he has already passed', () => {
+    // An L-shaped walk; he stands at the far end, much further from her next corner than she is.
+    const guide = new Guide({ path: [{ x: 0, z: 0 }, { x: 0, z: 10 }, { x: 30, z: 10 }] });
+    guide.lead();
+    for (let i = 0; i < 60; i++) guide.step(1 / 60, { x: 30, z: 10 });
+    expect(guide.position.z).toBeGreaterThan(2);
+  });
+});
+
 describe('Guide', () => {
   it('does nothing before lead()', () => {
     const guide = new Guide({ path: [{ x: 0, z: 0 }, { x: 10, z: 0 }] });

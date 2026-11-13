@@ -222,6 +222,18 @@ describe('Hud', () => {
     expect(hud.medalCount).toBe(1);
   });
 
+  it('clearMedals empties the tray, and the same letter can be won again', () => {
+    const { hud, doc } = makeHud();
+    hud.addMedal('a');
+    hud.addMedal('t');
+    hud.clearMedals();
+    expect(hud.medalCount).toBe(0);
+    expect(findAll(doc, 'medal').filter((medal) => medal.parent?.parent != null).length).toBe(0);
+
+    hud.addMedal('a');
+    expect(hud.medalCount).toBe(1);
+  });
+
   it('dispose removes the tray', () => {
     const { hud, doc, root } = makeHud();
     hud.addMedal('a');
